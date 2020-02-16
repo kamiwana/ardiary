@@ -17,19 +17,25 @@ class LoginUserSerializer(serializers.Serializer):
         raise serializers.ValidationError("이메일 또는 비밀번호가 올바르지 않습니다")
 
 class UserSerializer(serializers.ModelSerializer):
+    token = serializers.SerializerMethodField('get_user_token')
+
+    def get_user_token(self, obj):
+        token = Token.objects.get(user=obj)
+        return token.key
+
     class Meta:
         model = get_user_model()
-        fields = ("id", "email")
+        fields = ("id", "email", "username", "login_type", "token")
 
 class CreateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
-        fields = ("email", "customuser_name", "password", "login_type")
+        fields = ("email", "username", "password", "login_type")
         extra_kwargs = {"password": {"write_only": True, 'min_length': 8}}
 
     def create(self, validated_data):
-        user = create_user_account(validated_data['email'], validated_data['password'],
-                                   validated_data['customuser_name'], validated_data['login_type'])
+        user = create_user_account(validated_data['email'], validated_data['username'], validated_data['password'],
+                                  validated_data['login_type'])
         user.set_password(validated_data['password'])
         user.save()
         return user
@@ -69,7 +75,7 @@ class AuthUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = get_user_model()
-        fields = ('id', 'email', 'customuser_name', 'login_type', )
+        fields = ('id', 'email', 'username', 'login_type', )
 
     def get_auth_token(self, obj):
         token = Token.objects.create(user=obj)
