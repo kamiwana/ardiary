@@ -3,12 +3,66 @@ from rest_framework import serializers
 from rest_framework.serializers import HyperlinkedIdentityField
 from .models import *
 
+class RecursiveSerializer(serializers.Serializer):
+    def to_representation(self, value):
+        serializer = self.parent.parent.__class__(value, context=self.context)
+        return serializer.data
+
+class CommentSerializer(serializers.ModelSerializer):
+    replies = RecursiveSerializer(many=True, read_only=True)
+
+    def get_queryset(self):
+        user = self.context['request'].user
+        queryset = Comment.objects.filter(parent=None)
+        return queryset
+
+    class Meta:
+        model = Comment
+        fields = [
+            'id',
+            'username',
+            'parent',
+            'comment_content',
+            'replies',
+        ]
+
+        read_only_fields = [
+            'replies',
+        ]
+
+class CommentListSerializer(serializers.ModelSerializer):
+    url = HyperlinkedIdentityField(
+        view_name='comments-api:thread')
+
+    class Meta:
+        model = Comment
+        fields = [
+            'url',
+            'id',
+            # 'content_type',
+            # 'object_id',
+            # 'parent',
+            'comment_content',
+            'create_date',
+        ]
+
+class ImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContentsFiles
+        fields = '__all__'
+
 class ContentsSerializer(serializers.ModelSerializer):
+  #  user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    contents_comment = CommentSerializer(many=True, read_only=True)
+    contents_files = ImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Contents
-        fields = '__all__'
-        read_only_fields = ('pk', 'create_dt', 'update_dt')
+        fields = ('pk', 'user', 'qr_data', 'qr_code', 'title', 'recog_type', 'password', 'video_url', 'label_text', 'neon_text',
+                  'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
+                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type', 'view_count',
+                  'like_count', 'comment_count', 'update_dt', 'username', 'contents_comment', 'contents_files')
+        read_only_fields = ('pk', 'update_dt', 'like_count', 'comment_count', 'username', 'qr_code',)
 
     def validate_qr_data(self, value):
         try:
@@ -32,10 +86,27 @@ class ContentsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(data)
         return value
 
+
     def create(self, validated_data):
         contents = Contents.objects.create(**validated_data)
         QRDatas.objects.filter(pk=contents.qr_data.pk).update(is_active=1)
+
+        for file_item in self.initial_data.getlist('contents_files'):
+            c = ContentsFiles(file=file_item, contents=contents)
+            c.save()
         return contents
+
+    def update(self, instance, validated_data):
+      for item in validated_data:
+          if Contents._meta.get_field(item):
+              setattr(instance, item, validated_data[item])
+
+      c = ContentsFiles(file=self.context['request'].FILES['contents_files'], contents=instance)
+      c.save()
+
+      instance.save()
+      setattr(instance, '_prefetched_objects_cache', True)
+      return instance
 
 def create_comment_serializer(parent_id=None, user=None):
     class CommentCreateSerializer(serializers.ModelSerializer):
@@ -68,65 +139,4 @@ def create_comment_serializer(parent_id=None, user=None):
                     )
 
             return comment
-
-class CommentListSerializer(serializers.ModelSerializer):
-    url = HyperlinkedIdentityField(
-        view_name='comments-api:thread')
-
-    class Meta:
-        model = Comment
-        fields = [
-            'url',
-            'id',
-            # 'content_type',
-            # 'object_id',
-            # 'parent',
-            'comment_content',
-            'create_date',
-        ]
-
-class SubcommentSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Comment
-        fields = ('id', 'comment_content', 'parent')
-
-
-class CommentChildSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Comment
-        fields = [
-            'id',
-            'comment_user_id',
-            'parent',
-            'comment_content',
-
-        ]
-
-class RecursiveSerializer(serializers.Serializer):
-    def to_representation(self, value):
-        serializer = self.parent.parent.__class__(value, context=self.context)
-        return serializer.data
-
-class CommentSerializer(serializers.ModelSerializer):
-    replies = RecursiveSerializer(many=True, read_only=True)
-
-    def get_queryset(self):
-        user = self.context['request'].user
-        queryset = Comment.objects.filter(parent=None)
-        return queryset
-
-    class Meta:
-        model = Comment
-        fields = [
-            'id',
-            'comment_user_id',
-            'parent',
-            'comment_content',
-            'replies',
-        ]
-
-        read_only_fields = [
-            'replies',
-        ]
+    return CommentCreateSerializer
