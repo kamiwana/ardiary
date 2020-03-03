@@ -12,10 +12,11 @@ def custom_exception_handler(exc, context):
         customized_response['data'] = []
 
         for key, value in response.data.items():
-            error = {'result':-1, 'field': key, 'message': value}
-            customized_response['data'].append(error)
+          #  error = {'result': 0, 'field': key, 'message': value}
+          error = {'result': 0, 'field': key, 'message': value}
+          #  customized_response['data'].append(error)
 
-        response.data = customized_response
+        response.data = error
 
     return response
 

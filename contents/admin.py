@@ -1,0 +1,49 @@
+from django.contrib import admin
+from .models import *
+# Register your models here.
+
+class LikeInline(admin.TabularInline):
+    model = Like
+
+class UnLikeInline(admin.TabularInline):
+    model = UnLike
+
+class CommentInline(admin.TabularInline):
+    model = Comment
+
+class CommentInline(admin.TabularInline):
+    model = Comment
+
+@admin.register(QRDatas)
+class QRDatasAdmin(admin.ModelAdmin):
+    list_display = ('qr_data', 'is_active','contents_title', 'username', 'activation_code',  'create_dt')
+    list_display_links = ['qr_data']
+    # 필터링 항목 설정
+    list_filter = ('qr_data', 'is_active',)
+    # 객체 검색 필드 설정
+    search_fields = ('qr_data', )
+
+@admin.register(Like)
+class LikeAdmin(admin.ModelAdmin):
+    list_display = ['user', 'contents', 'create_date']
+    list_display_links = ['contents']
+
+@admin.register(UnLike)
+class UnLikeAdmin(admin.ModelAdmin):
+    list_display = ['user', 'contents', 'create_date']
+    list_display_links = ['contents']
+
+@admin.register(Contents)
+class ContentsAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'user', 'view_count', 'comment_count', 'like_count', 'unlike_count', 'update_dt')
+    list_display_links = ['title']
+    # 필터링 항목 설정
+    list_filter = ('update_dt',)
+    # 객체 검색 필드 설정
+    search_fields = ('title', 'user')
+    inlines = [LikeInline, UnLikeInline, CommentInline, ]
+
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    list_display = ['contents', 'comment_content', 'user', 'create_dt']
+    list_display_links = ['contents', 'comment_content', 'user']

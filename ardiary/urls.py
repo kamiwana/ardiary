@@ -27,7 +27,7 @@ schema_view = get_schema_view(
    openapi.Info(
       title="ARDiary API",
       default_version='v1',
-      description="ARDiary description",
+      description="인증은 토큰 기반입니다.",
    ),
    validators=['flex'], #'ssv'],
    public=True,
@@ -37,7 +37,7 @@ schema_view = get_schema_view(
 
 admin.site.site_title = "ARDiary"
 admin.site.site_header = "ARDiary"
-
+admin.site.index_title = "ARDiary"
 urlpatterns = [
     path('admin/', admin.site.urls),
     url(r'^auth/', include('users.urls')),

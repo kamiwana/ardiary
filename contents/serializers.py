@@ -3,6 +3,14 @@ from rest_framework import serializers
 from rest_framework.serializers import HyperlinkedIdentityField
 from .models import *
 
+class LikeSerializer(serializers.Serializer):
+    class Meta:
+        model = Like
+
+class UnLikeSerializer(serializers.Serializer):
+    class Meta:
+        model = UnLike
+
 class RecursiveSerializer(serializers.Serializer):
     def to_representation(self, value):
         serializer = self.parent.parent.__class__(value, context=self.context)
@@ -12,7 +20,6 @@ class CommentSerializer(serializers.ModelSerializer):
     replies = RecursiveSerializer(many=True, read_only=True)
 
     def get_queryset(self):
-        user = self.context['request'].user
         queryset = Comment.objects.filter(parent=None)
         return queryset
 
@@ -39,9 +46,6 @@ class CommentListSerializer(serializers.ModelSerializer):
         fields = [
             'url',
             'id',
-            # 'content_type',
-            # 'object_id',
-            # 'parent',
             'comment_content',
             'create_date',
         ]
@@ -92,7 +96,7 @@ class ContentsSerializer(serializers.ModelSerializer):
         QRDatas.objects.filter(pk=contents.qr_data.pk).update(is_active=1)
 
         for file_item in self.initial_data.getlist('contents_files'):
-            c = ContentsFiles(file=file_item, contents=contents)
+            c = ContentsFiles(file=file_item, contents=contents, user=contents.user)
             c.save()
         return contents
 
@@ -107,6 +111,13 @@ class ContentsSerializer(serializers.ModelSerializer):
       instance.save()
       setattr(instance, '_prefetched_objects_cache', True)
       return instance
+
+class QRDatasSerializer(serializers.ModelSerializer):
+    qrdatascontents = ContentsSerializer(read_only=True)
+
+    class Meta:
+        model = QRDatas
+        fields = ('id', 'qr_data', 'is_active', 'activation_code', 'create_dt', 'update_dt', 'qrdatascontents',)
 
 def create_comment_serializer(parent_id=None, user=None):
     class CommentCreateSerializer(serializers.ModelSerializer):
