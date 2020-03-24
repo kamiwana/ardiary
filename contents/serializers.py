@@ -123,13 +123,8 @@ def create_comment_serializer(parent_id=None, user=None):
     class CommentCreateSerializer(serializers.ModelSerializer):
         class Meta:
             model = Comment
-            fields = [
-                'id',
-                'contents',
-                'parent',
-                'comment_content',
-                'create_dt',
-            ]
+            fields = ('id', 'contents', 'parent', 'comment_content', 'create_dt',)
+
         def __init__(self, *args, **kwargs):
             self.parent_obj = None
             if parent_id:

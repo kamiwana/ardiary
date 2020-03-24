@@ -14,7 +14,7 @@ def contents_path(instance, filename):
 class QRDatas(models.Model):
     qr_data = models.CharField(max_length=255, unique=True)
     is_active = models.SmallIntegerField(choices=IS_ACTIVE, default=0, verbose_name='사용 여부')
-    activation_code = models.CharField(max_length=50, blank=True)
+    activation_code = models.IntegerField(blank=True)
     create_dt = models.DateField(auto_now_add=True, verbose_name='생성일')
     update_dt = models.DateTimeField(auto_now=True, verbose_name='수정일')
     
@@ -23,6 +23,7 @@ class QRDatas(models.Model):
 
     def username(self):
         return self.qrdatascontents.username()
+    
     def contents_title(self):
         return self.qrdatascontents.title
 
@@ -64,6 +65,7 @@ class Contents(models.Model):
                                            related_name='comment_user_set',
                                            through='Comment', null=True)
     view_count = models.IntegerField(default=0)
+
     class Meta:
         verbose_name = '2. 컨텐츠'
         verbose_name_plural = '2. 컨텐츠'
