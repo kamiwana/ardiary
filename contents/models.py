@@ -11,6 +11,14 @@ def contents_path(instance, filename):
     extension = filename.split('.')[-1]
     return 'contents/{}/{}.{}'.format(instance.user_id, pid, extension)
 
+def contents_audio_path(instance, filename):
+    from random import choice
+    import string
+    arr = [choice(string.ascii_letters) for _ in range(8)]
+    pid = ''.join(arr)
+    extension = filename.split('.')[-1]
+    return 'contents/{}/{}.{}'.format(instance.user_id, pid, extension)
+
 class QRDatas(models.Model):
     qr_data = models.CharField(max_length=255, unique=True)
     is_active = models.SmallIntegerField(choices=IS_ACTIVE, default=0, verbose_name='사용 여부')
@@ -36,15 +44,14 @@ class Contents(models.Model):
     qr_data = models.OneToOneField(QRDatas, on_delete=models.CASCADE, related_name="qrdatascontents")
     title = models.CharField(max_length=100, verbose_name='제목')
     contents_type = models.SmallIntegerField(choices=CONTENTS_TYPE, default=0, verbose_name='컨텐츠타입', blank=True)
+    audio_url = models.FileField(upload_to=contents_audio_path,  verbose_name='음성 데이터 주소', blank=True, null=True)
     recog_type = models.SmallIntegerField(choices=RECOG_TYPE, default=0, verbose_name='인식타입', blank=True)
-    password = models.IntegerField(verbose_name='패스워드', blank=True, null=True)
     video_url = models.URLField(max_length=100, verbose_name='영상주소', blank=True)
     label_text = models.CharField(max_length=20, verbose_name='label_text', blank=True)
     neon_text = models.CharField(max_length=20, verbose_name='neon_text', blank=True)
     neon_style = models.IntegerField(verbose_name='neon_style', blank=True, null=True)
     neon_effect = models.IntegerField(verbose_name='neon_effect', blank=True, null=True)
     neon_material = models.IntegerField(verbose_name='neon_material', blank=True, null=True)
-    audio_url = models.URLField(max_length=100, verbose_name='음성 데이터 주소', blank=True, null=True)
     link_01_type = models.SmallIntegerField(choices=LIKE_TYPE, default=0, verbose_name='link_01_type', blank=True, null=True)
     link_01_url = models.URLField(max_length=100, verbose_name='link_01_url', blank=True, null=True)
     link_02_type = models.SmallIntegerField(choices=LIKE_TYPE, default=0, verbose_name='link_02_type', blank=True, null=True)
@@ -88,12 +95,40 @@ class Contents(models.Model):
     def qr_code(self):
         return self.qr_data.qr_data
 
+
+    def password(self):
+        try:
+            return self.contentspassword.password
+        except:
+            return ""
+
+class ContentsPassword(models.Model):
+    contents = models.OneToOneField(Contents, on_delete=models.CASCADE, related_name='contentspassword')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    password = models.CharField(max_length=4, verbose_name='패스워드', blank=False, null=False)
+    create_dt = models.DateTimeField(auto_now_add=True, verbose_name='등록일', null=True)
+
+    def __str__(self):
+        try:
+            return self.password
+        except:
+            return ""
+
+
+    class Meta:
+        verbose_name = '3. 패스워드'
+        verbose_name_plural = '3. 패스워드'
+
 class ContentsFiles(models.Model):
     contents = models.ForeignKey(Contents, on_delete=models.CASCADE, related_name='contents_files')
     file = models.FileField(upload_to=contents_path, verbose_name='파일', null=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     create_dt = models.DateTimeField(auto_now_add=True, verbose_name='등록일', null=True)
 
+    class Meta:
+        verbose_name = '4. 이미지'
+        verbose_name_plural = '4. 이미지'
+        
 class Comment(models.Model):
     contents = models.ForeignKey(Contents, on_delete=models.CASCADE, related_name='contents_comment')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -117,8 +152,8 @@ class Comment(models.Model):
         return Comment.objects.filter(parent=self)
 
     class Meta:
-        verbose_name = '3. 댓글'
-        verbose_name_plural = '3. 댓글'
+        verbose_name = '5. 댓글'
+        verbose_name_plural = '5. 댓글'
 
 class Like(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -126,8 +161,8 @@ class Like(models.Model):
     create_date = models.DateTimeField(auto_now_add=True, verbose_name='등록일')
 
     class Meta:
-        verbose_name = '4. 좋아요'
-        verbose_name_plural = '4. 좋아요'
+        verbose_name = '6. 좋아요'
+        verbose_name_plural = '6. 좋아요'
 
         unique_together = (
             ('user', 'contents')
@@ -139,8 +174,8 @@ class UnLike(models.Model):
     create_date = models.DateTimeField(auto_now_add=True, verbose_name='등록일')
 
     class Meta:
-        verbose_name = '5. 싫어요'
-        verbose_name_plural = '5. 싫어요'
+        verbose_name = '7. 싫어요'
+        verbose_name_plural = '7. 싫어요'
 
         unique_together = (
             ('user', 'contents')
