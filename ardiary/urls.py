@@ -26,14 +26,13 @@ from drf_yasg import openapi
 schema_view = get_schema_view(
    openapi.Info(
       title="ARDiary API",
-      default_version='v1',
-      description="인증은 토큰 기반입니다.",
+      default_version='v2',
+      description="인증은 로그인시 전달받은 사용자 id 값을  user 파라미터로  서버에 전달",
    ),
    validators=['flex'], #'ssv'],
    public=True,
    permission_classes=(permissions.AllowAny,),
 )
-
 
 admin.site.site_title = "ARDiary"
 admin.site.site_header = "ARDiary"
