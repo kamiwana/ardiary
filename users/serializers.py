@@ -3,7 +3,6 @@ from django.contrib.auth import get_user_model, password_validation, authenticat
 import django.contrib.auth.password_validation as validators
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import BaseUserManager
-from rest_framework.authtoken.models import Token
 from .utils import create_user_account
 
 class LoginUserSerializer(serializers.Serializer):
@@ -14,18 +13,15 @@ class LoginUserSerializer(serializers.Serializer):
         user = authenticate(**data)
         if user and user.is_active:
             return user
-        raise serializers.ValidationError("이메일 또는 비밀번호가 올바르지 않습니다")
+
+        data = {'login': '이메일 또는 비밀번호가 올바르지 않습니다.'}
+        raise serializers.ValidationError(data)
 
 class UserSerializer(serializers.ModelSerializer):
-    token = serializers.SerializerMethodField('get_user_token')
-
-    def get_user_token(self, obj):
-        token = Token.objects.get(user=obj)
-        return token.key
 
     class Meta:
         model = get_user_model()
-        fields = ("id", "email", "username", "login_type", "token")
+        fields = ("id", "email", "username", "login_type")
 
 class CreateUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -59,24 +55,8 @@ class ChangePasswordSerializer(serializers.Serializer):
     """
     current_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
-
-
-    def validate_current_password(self, value):
-        if not self.context['request'].user.check_password(value):
-            raise serializers.ValidationError('기존 비밀번호가 다릅니다.')
-        return value
+    user = serializers.IntegerField(required=True, help_text="foo bar")
 
     def validate_new_password(self, value):
         password_validation.validate_password(value)
         return value
-
-class AuthUserSerializer(serializers.ModelSerializer):
-    auth_token = serializers.SerializerMethodField()
-
-    class Meta:
-        model = get_user_model()
-        fields = ('id', 'email', 'username', 'login_type', )
-
-    def get_auth_token(self, obj):
-        token = Token.objects.create(user=obj)
-        return token.key
