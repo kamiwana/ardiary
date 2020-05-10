@@ -21,7 +21,7 @@ class ContentsPasswordInline(admin.TabularInline):
 
 @admin.register(QRDatas)
 class QRDatasAdmin(admin.ModelAdmin):
-    list_display = ('qr_data', 'is_active', 'contents_title', 'username', 'activation_code',  'create_dt')
+    list_display = ('qr_data', 'is_active','contents_type', 'contents_title', 'username', 'activation_code',  'create_dt')
     list_display_links = ['qr_data']
     # 필터링 항목 설정
     list_filter = ('qr_data', 'is_active',)

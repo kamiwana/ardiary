@@ -1,22 +1,14 @@
-from rest_framework.views import exception_handler
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException
+from django.utils.encoding import force_text
+from rest_framework import status
 
-def custom_exception_handler(exc, context):
-    # Call REST framework's default exception handler first,
-    # to get the standard error response.
-    response = exception_handler(exc, context)
+class CustomValidation(APIException):
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    default_detail = 'A server error occurred.'
 
-    # Update the structure of the response data.
-    if response is not None:
-        customized_response = {}
-        customized_response['data'] = []
-
-        for key, value in response.data.items():
-          #  error = {'result': 0, 'field': key, 'message': value}
-          error = {'result': 0, 'field': key, 'message': value}
-          #  customized_response['data'].append(error)
-
-        response.data = error
-
-    return response
-
+    def __init__(self, result, detail):
+       # if status_code is not None: self.status_code = status_code
+        self.status_code = status.HTTP_400_BAD_REQUEST
+        if detail is not None:
+            self.detail = {'result': int(result), 'error': detail, 'data': {}}
+        else: self.detail = {'detail': force_text(self.default_detail)}

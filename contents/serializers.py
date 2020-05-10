@@ -2,21 +2,24 @@ import json
 from rest_framework import serializers
 from rest_framework.serializers import HyperlinkedIdentityField
 from .models import *
+from users.utils import get_user
+from ardiary.exception_handler import CustomValidation
 
-class LikeSerializer(serializers.Serializer):
+class LikeSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Like
+        fields = '__all__'
 
 class ContentsPasswordSerializer(serializers.ModelSerializer):
 
-    def validate_password(self, value):
-        if value is not None:
-            if len(str(value)) != 4:
-                data = "비밀번호는 4자리입니다."
-                raise serializers.ValidationError(data)
-            elif value.isdigit() is False:
-                data = "비밀번호는 숫자만 입력하세요."
-                raise serializers.ValidationError(data)
+    def validate(self, value):
+        password = value['password']
+        if password is not None:
+            if len(str(password)) != 4:
+                raise CustomValidation('-22', "비밀번호는 4자리입니다.")
+            elif password.isdigit() is False:
+                raise CustomValidation('-23', "비밀번호는 숫자만 입력하세요.")
         return value
 
     class Meta:
@@ -92,36 +95,43 @@ class ContentsCreateRequestSerializer(serializers.ModelSerializer):
     user = serializers.IntegerField(help_text="로그인시 전달받은 사용자 id 값")
     qr_data = serializers.CharField()
     activation_code = serializers.IntegerField(help_text="시리얼 번호")
-    recog_type = serializers.IntegerField(required=False, help_text="0-이미지기반, 1-공간기반, 2-음성기반")
-    link_01_type = serializers.IntegerField(required=False, help_text="0-페이스북, 1-사진, 2-쇼핑몰, 3-전화번호, 4-카카오톡, 5-카카오톡, 6-유튜브, 7-기타 URL")
-    link_02_type = serializers.IntegerField(required=False, help_text="0-페이스북, 1-사진, 2-쇼핑몰, 3-전화번호, 4-카카오톡, 5-카카오톡, 6-유튜브, 7-기타 URL")
-    effect_type = serializers.IntegerField(required=False, help_text="0-폭죽, 1-스노우, 2-선물상자")
-    char_type = serializers.IntegerField(required=False, help_text="0-사람, 1-팬더")
+    recog_type = serializers.IntegerField(required=False, help_text="1-이미지기반, 2-공간기반, 3-음성기반")
+    link_01_type = serializers.IntegerField(required=False, help_text="1-페이스북, 2-사진, 3-쇼핑몰, 4-전화번호, "
+                                                                      "5-카카오톡, 6-카카오톡, 7-유튜브, 8-기타 URL")
+    link_02_type = serializers.IntegerField(required=False, help_text="1-페이스북, 2-사진, 3-쇼핑몰, 4-전화번호, "
+                                                                      "5-카카오톡, 6-카카오톡, 7-유튜브, 8-기타 URL")
+    effect_type = serializers.IntegerField(required=False, help_text="1-폭죽, 2-스노우, 3-선물상자")
+    char_type = serializers.IntegerField(required=False, help_text="1-사람, 2-팬더")
     contents_files = serializers.FileField(required=False, help_text="사진이나 이미지 데이터 여러장 가능")
 
     class Meta:
         model = Contents
-        fields = ('user', 'qr_data', 'activation_code', 'title', 'recog_type', 'video_url', 'label_text', 'neon_text',
-                  'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
+        fields = ('user', 'qr_data', 'activation_code', 'title', 'recog_type', 'video_url',
+                  'label_text', 'neon_text', 'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
                   'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',  'contents_files')
 
 class ContentsSerializer(serializers.ModelSerializer):
-  #  user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    user = serializers.CharField(read_only=True)
+    qr_data = serializers.CharField(read_only=True)
     contents_comment = CommentSerializer(many=True, read_only=True)
     contents_files = ContentsFilesSerializer(many=True, read_only=True)
 
     class Meta:
         model = Contents
-        fields = ('pk', 'user', 'qr_data', 'title', 'password', 'recog_type', 'video_url', 'label_text', 'neon_text',
-                  'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type','link_01_url',
-                  'link_02_type', 'link_02_url', 'effect_type', 'char_type', 'view_count', 'like_count',
-                  'unlike_count', 'comment_count', 'update_dt', 'username', 'contents_comment', 'contents_files')
+        fields = ('pk',  'qr_data', 'user', 'username', 'title', 'password', 'audio_url', 'recog_type',
+                  'video_url', 'label_text', 'neon_text', 'neon_style', 'neon_effect', 'neon_material',
+                  'link_01_type', 'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',
+                  'view_count', 'like_count','unlike_count', 'comment_count', 'update_dt',
+                  'contents_comment', 'contents_files')
         read_only_fields = ('pk', 'update_dt', 'like_count', 'unlike_count', 'comment_count', 'username', 'qr_code',
                             'view_count')
 
-
     def create(self, validated_data):
-        contents = Contents.objects.create(**validated_data)
+        user = self._kwargs['data']['user']
+        qr_data = self._kwargs['data']['qr_data']
+        user = get_user(user)
+        qr_data = QRDatas.objects.get(qr_data=qr_data)
+        contents = Contents.objects.create(user=user, qr_data=qr_data,  **validated_data)
         QRDatas.objects.filter(pk=contents.qr_data.pk).update(is_active=1)
 
         for file_item in self.initial_data.getlist('contents_files'):
@@ -132,16 +142,16 @@ class ContentsSerializer(serializers.ModelSerializer):
 
 class ContentsUpdateRequestSerializer(serializers.ModelSerializer):
 
-    recog_type = serializers.IntegerField(required=False, help_text="0-이미지기반, 1-공간기반, 2-음성기반")
-    link_01_type = serializers.IntegerField(required=False, help_text="0-페이스북, 1-사진, 2-쇼핑몰, 3-전화번호, 4-카카오톡, 5-카카오톡, 6-유튜브, 7-기타 URL")
-    link_02_type = serializers.IntegerField(required=False, help_text="0-페이스북, 1-사진, 2-쇼핑몰, 3-전화번호, 4-카카오톡, 5-카카오톡, 6-유튜브, 7-기타 URL")
-    effect_type = serializers.IntegerField(required=False, help_text="0-폭죽, 1-스노우, 2-선물상자")
-    char_type = serializers.IntegerField(required=False, help_text="0-사람, 1-팬더")
+    recog_type = serializers.IntegerField(required=False, default=0, help_text="1-이미지기반, 2-공간기반, 3-음성기반")
+    link_01_type = serializers.IntegerField(required=False, help_text="1-페이스북, 2-사진, 3-쇼핑몰, 4-전화번호, 5-카카오톡, 6-카카오톡, 7-유튜브, 8-기타 URL")
+    link_02_type = serializers.IntegerField(required=False, help_text="1-페이스북, 2-사진, 3-쇼핑몰, 4-전화번호, 5-카카오톡, 6-카카오톡, 7-유튜브, 8-기타 URL")
+    effect_type = serializers.IntegerField(required=False, help_text="1-폭죽, 2-스노우, 3-선물상자")
+    char_type = serializers.IntegerField(required=False, help_text="1-사람, 2-팬더")
     contents_files = serializers.FileField(required=False, help_text="사진이나 이미지 데이터 여러장 가능")
 
     class Meta:
         model = Contents
-        fields = ('title',  'recog_type', 'video_url', 'label_text', 'neon_text',
+        fields = ('title', 'recog_type', 'video_url', 'label_text', 'neon_text',
                   'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
                   'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',  'contents_files')
 
@@ -150,10 +160,10 @@ class ContentsUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Contents
-        fields = ('pk', 'user',  'title',  'recog_type', 'video_url', 'label_text', 'neon_text',
+        fields = ('pk', 'user',  'username',  'title',  'recog_type', 'video_url', 'label_text', 'neon_text',
                   'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
                   'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type', 'update_dt',
-                  'username',  'contents_files')
+                  'contents_files')
 
     def update(self, instance, validated_data):
 
@@ -196,7 +206,7 @@ class QRDatasSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QRDatas
-        fields = ('id', 'qr_data', 'is_active', 'activation_code', 'create_dt', 'update_dt', 'qrdatascontents',)
+        fields = ('id', 'qr_data', 'is_active', 'activation_code', 'contents_type', 'create_dt', 'update_dt', 'qrdatascontents',)
 
 def create_comment_serializer(parent_id=None, user=None):
     class CommentCreateSerializer(serializers.ModelSerializer):
@@ -224,4 +234,5 @@ def create_comment_serializer(parent_id=None, user=None):
                     )
 
             return comment
+
     return CommentCreateSerializer

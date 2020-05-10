@@ -10,6 +10,9 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.views import APIView
 from users.utils import get_user
+from ardiary.exception_handler import CustomValidation
+from utils import error_collection
+from .utils import *
 
 user = openapi.Parameter('user', in_=openapi.IN_QUERY, description='로그인시 전달받은 사용자 id 값',
                                 type=openapi.TYPE_INTEGER)
@@ -49,18 +52,12 @@ class ContentsCreateAPI(APIView):
 
     @swagger_auto_schema(request_body=ContentsCreateRequestSerializer,
          responses={
-             status.HTTP_200_OK: openapi.Response('OK', QRDatasSerializer),
-             status.HTTP_400_BAD_REQUEST: openapi.Schema(
-                 type=openapi.TYPE_OBJECT,
-                 properties={
-                     'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0'),
-                     'field': openapi.Schema(type=openapi.TYPE_INTEGER,
-                                             description='qr_code, activation_code, contents'),
-                     'message': openapi.Schema(type=openapi.TYPE_STRING,
-                                               description='등록된 QR코드가 없습니다. 등록된 시리얼 번호가 없습니다. '
-                                                           '컨텐츠가 등록된 QR코드 입니다.'),
-                     },
-                 ),
+             200: QRDatasSerializer,
+             400:
+                 error_collection.ACTIVATION_CODE_INVALID.as_md() +
+                 error_collection.QRDATA_HAS_CONTENTS.as_md() +
+                 error_collection.QRDATA_NOT_FOUNDS.as_md() +
+                 error_collection.NOT_FOUNT.as_md()
              },
          )
     def post(self, request, *args, **kwargs):
@@ -72,39 +69,37 @@ class ContentsCreateAPI(APIView):
 
         """
 
-        user = get_user(request.data['user'])
-
+        get_user(request.data['user'])
         qr_data = request.data['qr_data']
         activation_code = request.data['activation_code']
 
         try:
             qrdats = QRDatas.objects.get(qr_data=qr_data)
 
-            data = {"activation_code": '등록된 시리얼 번호가 없습니다.'}
             if activation_code:
                 if str(qrdats.activation_code) != activation_code:
-                    raise serializers.ValidationError(data)
+                    raise CustomValidation('-14', "등록된 시리얼 번호가 없습니다.")
             else:
-                raise serializers.ValidationError(data)
+                raise CustomValidation('-14', "등록된 시리얼 번호가 없습니다.")
 
             if qrdats.is_active == 1:
-                data = {"contents": '컨텐츠가 등록된 QR코드 입니다.'}
-                raise serializers.ValidationError(data)
+                raise CustomValidation('-15', "컨텐츠가 등록된 QR코드 입니다.")
 
         except QRDatas.DoesNotExist:
-             data = {"qr_code": '등록된 QR코드가 없습니다.'}
-             raise serializers.ValidationError(data)
+             raise CustomValidation('-16', "등록된 QR코드가 없습니다.")
 
-        data = request.data.copy()
-        data['user'] = user.pk
-        data['qr_data'] = qrdats.pk
-        contents_serializer = ContentsSerializer(data=data)
-        if contents_serializer.is_valid():
-            contents_serializer.save()
-            return Response(contents_serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            data = {"contents": contents_serializer.errors}
-            raise serializers.ValidationError(data)
+        try:
+            Contents.objects.get(qr_data__qr_data=qr_data)
+            raise CustomValidation('-15', "컨텐츠가 등록된 QR코드 입니다.")
+
+        except Contents.DoesNotExist:
+            contents_serializer = ContentsSerializer(data=request.data)
+            if contents_serializer.is_valid():
+                contents_serializer.save()
+                data = {'result': 0, 'error': 'null', 'data': contents_serializer.data}
+                return Response(data, status=status.HTTP_201_CREATED)
+            else:
+                raise CustomValidation('0', contents_serializer.errors)
 
 
 class ContentsUpdateAPI(APIView):
@@ -124,40 +119,29 @@ class ContentsUpdateAPI(APIView):
     @swagger_auto_schema(
          request_body=ContentsUpdateRequestSerializer,
          responses={
-             status.HTTP_200_OK: openapi.Response('OK', ContentsUpdateSerializer),
-             status.HTTP_400_BAD_REQUEST: openapi.Schema(
-                 type=openapi.TYPE_OBJECT,
-                 properties={
-                     'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0'),
-                     'field': openapi.Schema(type=openapi.TYPE_INTEGER,
-                                             description='contents'),
-                     'message': openapi.Schema(type=openapi.TYPE_STRING,
-                                               description='작성자만 수정 가능합니다.'),
-                     },
-                 ),
-             },
+             200: ContentsUpdateSerializer,
+             400:
+                 error_collection.CONTENTS_NOT_FOUNDS.as_md() +
+                 error_collection.CONTENTS_CHECK_USER.as_md() +
+                 error_collection.NOT_FOUNT.as_md()
+            },
          )
     def post(self, request, pk=None, user=None):
 
         user = get_user(user)
-        data = request.data.copy()
-        data['user'] = user.pk
+        contents = get_contents(pk)
 
-        queryset = get_object_or_404(Contents, pk=pk)
+        if user.pk != contents.user.pk:
+            raise CustomValidation('-18', '작성자만 수정 가능합니다.')
 
-        if user.pk != queryset.user.pk:
-            data = {"contents": '작성자만 수정 가능합니다.'}
-            raise serializers.ValidationError(data)
+        serializer = ContentsUpdateSerializer(contents, data=request.data, partial=True)
 
-        contents_serializer = ContentsUpdateSerializer(queryset, data=request.data, partial=True)
-
-        if contents_serializer.is_valid():
-            contents_serializer.save()
-            return Response(contents_serializer.data, status=status.HTTP_200_OK)
+        if serializer.is_valid():
+            serializer.save()
+            data = {'result': 0, 'error': 'null', 'data': serializer.data}
+            return Response(data, status=status.HTTP_200_OK)
         else:
-            data = {"contents": contents_serializer.errors}
-            raise serializers.ValidationError(data)
-
+            raise CustomValidation('0', serializer.errors)
 
 class QRDataDetailAPI(APIView):
     parser_classes = (MultiPartParser,)
@@ -166,17 +150,14 @@ class QRDataDetailAPI(APIView):
 
     @swagger_auto_schema(manual_parameters=[activation_code],
         responses={
-            status.HTTP_200_OK: openapi.Response('OK', QRDatasSerializer),
-            status.HTTP_400_BAD_REQUEST: openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0'),
-                    'field': openapi.Schema(type=openapi.TYPE_INTEGER, description='qr_code, activation_code, contents'),
-                    'message': openapi.Schema(type=openapi.TYPE_STRING,
-                        description='등록된 QR코드가 없습니다. 등록된 시리얼 번호가 다릅니다. 등록된 컨텐츠가 없습니다.'),
-                },
-            ),
-    })
+            200: QRDatasSerializer,
+            400:
+                error_collection.QRDATA_NOT_FOUNDS.as_md() +
+                error_collection.ACTIVATION_CODE_INVALID.as_md() +
+                error_collection.CONTENTS_DETAIL_NOT_FOUNDS.as_md() +
+                error_collection.NOT_FOUNT.as_md()
+        },
+    )
     def get(self, request, qr_data=None):
         """
             QR코드, 시리얼번호 체크 , 컨텐츠 가져오기
@@ -184,10 +165,10 @@ class QRDataDetailAPI(APIView):
             ---
             # /contents/qrdatas/{qr_data}?activation_code={activation_code}
             ## 내용
-                - recog_type : 0-이미지기반, 1-공간기반, 2-음성기반
-                - link_01_type, link_02_type : 0-페이스북, 1-사진, 2-쇼핑몰, 3-전화번호, 4-카카오톡, 5-카카오톡, 6-유튜브, 7-기타URL
-                - effect_type : 0-폭죽, 1-스노우, 2-선물상자
-                - char_type : 0-사람, 1-팬더
+                - recog_type : 1-이미지기반, 2-공간기반, 3-음성기반
+                - link_01_type, link_02_type : 1-페이스북, 2-사진, 3-쇼핑몰, 4-전화번호, 5-카카오톡, 6-카카오톡, 7-유튜브, 8-기타URL
+                - effect_type : 1-폭죽, 2-스노우, 3-선물상자
+                - char_type : 1-사람, 2-팬더
                 - contents_comment : 댓글 리스트
                 - contents_files : 등록된 파일리스트
         """
@@ -195,34 +176,38 @@ class QRDataDetailAPI(APIView):
         try:
             qr_data = QRDatas.objects.get(qr_data=qr_data)
         except QRDatas.DoesNotExist:
-            data = {"qr_code": '등록된 QR코드가 없습니다.'}
-            raise serializers.ValidationError(data)
+            raise CustomValidation('-16', '등록된 QR코드가 없습니다.')
 
         activation_code = self.request.GET.get("activation_code")
         if activation_code:
             if str(qr_data.activation_code) != activation_code:
-                data = {"activation_code": '등록된 시리얼 번호가 다릅니다.'}
-                raise serializers.ValidationError(data)
+                raise CustomValidation('-14', '등록된 시리얼 번호가 없습니다.')
         try:
             contents = Contents.objects.get(pk=qr_data.qrdatascontents.pk)
             contents.view_count = contents.view_count + 1
             contents.save()
 
             serializer = self.serializer_class(qr_data)
-            return Response(serializer.data)
+            data = {'result': 0, 'error': 'null', 'data': serializer.data}
+            return Response(data)
         except:
-            data = {
-                "result": 0,
-                "field": "contents",
-                "message": "등록된 컨텐츠가 없습니다.",
-                "qr_data": qr_data.qr_data,
-                "activation_code": qr_data.activation_code,
+
+          res_data = {
+              "qr_data": qr_data.qr_data,
+              "activation_code": qr_data.activation_code,
+              "contents_type": qr_data.contents_type
+          }
+
+          data = {
+                "result": 19,
+                "error": "등록된 컨텐츠가 없습니다.",
+                "data": res_data
             }
-            return Response(data, status=status.HTTP_400_BAD_REQUEST)
+          return Response(data, status=status.HTTP_200_OK)
 
 class ContentsPasswordCreateAPI(APIView):
     """
-    컨텐츠 패스워드  설정
+    컨텐츠 비밀번호  설정
 
     ---
     # /contents/password/create
@@ -246,10 +231,16 @@ class ContentsPasswordCreateAPI(APIView):
             type=openapi.TYPE_OBJECT,
             properties={
                'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='1'),
-                'field': openapi.Schema(type=openapi.TYPE_INTEGER, description='password'),
-               'message': openapi.Schema(type=openapi.TYPE_STRING, description='패스워드가 설정되었습니다.'),
+               'error': openapi.Schema(type=openapi.TYPE_STRING, description='null'),
+               'data': openapi.Schema(type=openapi.TYPE_STRING, description='비밀번호가 설정되었습니다.'),
                 },
             ),
+            400:
+                error_collection.CONTENTS_PASSWORD_NOT_BLANK.as_md() +
+                error_collection.CONTENTS_PASSWORD_INVALID.as_md() +
+                error_collection.CONTENTS_PASSWORD_DIGIT.as_md() +
+                error_collection.CONTENTS_HAS_PASSWORD.as_md() +
+                error_collection.NOT_FOUNT.as_md()
         },
     )
     def post(self, request, *args, **kwargs):
@@ -258,24 +249,30 @@ class ContentsPasswordCreateAPI(APIView):
         user = get_user(user_pk)
 
         contents_pk = self.request.data.get('contents', None)
-        contents = get_object_or_404(Contents, pk=contents_pk)
+        contents = get_contents(contents_pk)
 
         if user != contents.user:
-            data = {"user": "컨텐츠 등록한 사용자가 아닙니다."}
-            raise serializers.ValidationError(data)
+            raise CustomValidation('-20', '컨텐츠를 등록한 사용자가 아닙니다.')
 
-        contents_password_serializer = ContentsPasswordSerializer(data=request.data)
-        if contents_password_serializer.is_valid():
-            contents_password_serializer.save()
-            data = {'result': 1, 'field': 'password', 'message': '패스워드가 설정되었습니다.'}
+        serializer = ContentsPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            data = {'result': 1, 'error': 'null', 'data': '비밀번호가 설정되었습니다.'}
             return Response(data, status=status.HTTP_201_CREATED)
         else:
-            data = {"passowrd": contents_password_serializer.errors}
-            raise serializers.ValidationError(data)
+            dict = serializer.errors
+            if 'contents' in dict and 'unique' in dict['contents'][0]:
+                raise CustomValidation('-24', '비밀번호가 이미 설정되었습니다.')
+            elif 'password' in dict:
+                if 'blank' in dict['password'][0]:
+                    raise CustomValidation('-21', '비밀번호를 입력하세요.')
+                elif '4' in dict['password'][0]:
+                    raise CustomValidation('-22', '비밀번호는 4자리입니다.')
+            raise CustomValidation('0', dict)
 
 class ContentsPasswordUpdateAPI(APIView):
     """
-    컨텐츠 패스워드 수정
+    컨텐츠 비밀번호 수정
 
     ---
     # /contents/password/update
@@ -296,42 +293,56 @@ class ContentsPasswordUpdateAPI(APIView):
         },
     ),
         responses={
-            status.HTTP_200_OK: openapi.Schema(
+            200: openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
                'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='1'),
-                'field': openapi.Schema(type=openapi.TYPE_INTEGER, description='password'),
-               'message': openapi.Schema(type=openapi.TYPE_STRING, description='패스워드가 수정되었습니다.'),
+               'error': openapi.Schema(type=openapi.TYPE_INTEGER, description='null'),
+               'data': openapi.Schema(type=openapi.TYPE_STRING, description='비밀번호가 수정되었습니다.'),
                 },
             ),
+            400:
+                error_collection.CONTENTS_NOT_FOUNDS.as_md() +
+                error_collection.CONTENTS_HAS_NOT_USER.as_md() +
+                error_collection.CONTENTS_PASSWORD_NOT_BLANK.as_md() +
+                error_collection.CONTENTS_PASSWORD_INVALID.as_md() +
+                error_collection.CONTENTS_PASSWORD_DIGIT.as_md() +
+                error_collection.CONTENTS_PASSWORD_NOT_FOUND.as_md() +
+                error_collection.NOT_FOUNT.as_md()
         },
     )
     def post(self, request, *args, **kwargs):
-
         user_pk = self.request.data.get('user', None)
         user = get_user(user_pk)
 
         contents_pk = self.request.data.get('contents', None)
-        contents = get_object_or_404(Contents, pk=contents_pk)
+        contents = get_contents(contents_pk)
 
         if user != contents.user:
-            data = {"user": "컨텐츠 등록한 사용자가 아닙니다."}
-            raise serializers.ValidationError(data)
+            raise CustomValidation('-20', '컨텐츠를 등록한 사용자가 아닙니다.')
 
-        queryset = get_object_or_404(ContentsPassword, contents=contents)
-
-        contents_password_serializer = ContentsPasswordSerializer(queryset, data=request.data, partial=True)
-        if contents_password_serializer.is_valid():
-            contents_password_serializer.save()
-            data = {'result': 1, 'field': 'password', 'message': '패스워드가 수정되었습니다.'}
+        try:
+            queryset = ContentsPassword.objects.get(contents=contents)
+        except ContentsPassword.DoesNotExist:
+            raise CustomValidation('-25', '등록된 비밀번호가 없습니다.')
+        
+        serializer = ContentsPasswordSerializer(queryset, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            data = {'result': 1, 'error': 'null', 'data': '비밀번호가 수정되었습니다.'}
             return Response(data, status=status.HTTP_201_CREATED)
         else:
-            data = {"passowrd": contents_password_serializer.errors}
-            raise serializers.ValidationError(data)
+            dict = serializer.errors
+            if 'password' in dict:
+                if 'blank' in dict['password'][0]:
+                    raise CustomValidation('-21', '비밀번호를 입력하세요.')
+                elif '4' in dict['password'][0]:
+                    raise CustomValidation('-22', "비밀번호는 4자리입니다.")
+            raise CustomValidation('0', dict)
 
 class ContentsPasswordAPI(APIView):
     """
-    컨텐츠 패스워드 확인
+    컨텐츠 비밀번호 확인
 
     ---
     # /contents/password
@@ -352,22 +363,17 @@ class ContentsPasswordAPI(APIView):
         },
     ),
         responses={
-            status.HTTP_200_OK: openapi.Schema(
+            200: openapi.Schema(
                 type=openapi.TYPE_OBJECT,
                 properties={
                    'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='1'),
-                   'field': openapi.Schema(type=openapi.TYPE_INTEGER, description='password'),
-                   'message': openapi.Schema(type=openapi.TYPE_STRING, description='패스워드가  일치합니다.'),
+                   'error': openapi.Schema(type=openapi.TYPE_INTEGER, description='null'),
+                   'data': openapi.Schema(type=openapi.TYPE_STRING, description='비밀번호가 일치합니다.'),
                     },
             ),
-            status.HTTP_400_BAD_REQUEST: openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0'),
-                    'field': openapi.Schema(type=openapi.TYPE_INTEGER, description='password'),
-                    'message': openapi.Schema(type=openapi.TYPE_STRING, description='패스워드가 다릅니다.'),
-                }
-            ),
+            400:
+                error_collection.CONTENTS_NOT_FOUNDS.as_md() +
+                error_collection.CONTENTS_PASSWORD_NOT_MATCH.as_md()
         },
     )
     def post(self, request, *args, **kwargs):
@@ -378,17 +384,16 @@ class ContentsPasswordAPI(APIView):
 
         # 컨텐츠 여부 체크
         contents_pk = self.request.data.get('contents', None)
-        contents = get_object_or_404(Contents, pk=contents_pk)
+        contents = get_contents(contents_pk)
 
         # 패스워드 체크
         contents_password = self.request.data.get('password', None)
 
         if contents_password == contents.contentspassword.password:
-            data = {'result': 1, 'field': 'password', 'message': '패스워드가 일치합니다.'}
+            data = {'result': 1, 'error': 'null', 'data': '비밀번호가 일치합니다.'}
             return Response(data, status=status.HTTP_200_OK)
         else:
-            data = {'password': '패스워드가 다릅니다.'}
-            raise serializers.ValidationError(data)
+            raise CustomValidation('-26', "비밀번호가 다릅니다.")
 
 class LikeAPI(APIView):
     """
@@ -412,14 +417,17 @@ class LikeAPI(APIView):
         },
     ),
         responses={
-            status.HTTP_200_OK: openapi.Schema(
+            200: openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-               'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0, 1'),
-               'field': openapi.Schema(type=openapi.TYPE_STRING, description='like'),
-               'message': openapi.Schema(type=openapi.TYPE_STRING, description='좋아요 취소, 좋아요'),
+               'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='1, 2'),
+               'error': openapi.Schema(type=openapi.TYPE_STRING, description='null'),
+               'data': openapi.Schema(type=openapi.TYPE_STRING, description='좋아요 취소, 좋아요'),
                 },
             ),
+            400:
+                error_collection.USERNAME_NOT_FOUND.as_md() +
+                error_collection.CONTENTS_NOT_FOUNDS.as_md()
         },
     )
     def post(self, request, *args, **kwargs):
@@ -428,79 +436,14 @@ class LikeAPI(APIView):
         user = get_user(user_pk)
 
         contents_pk = self.request.data.get('contents', None)
-        contents = get_object_or_404(Contents, pk=contents_pk)
+        contents = get_contents(contents_pk)
+
         contents_like, contents_like_created = contents.like_set.get_or_create(user=user)
 
         if contents_like_created:
-            data = {'result': 1, 'field': 'like', 'message': '좋아요'}
+            data = {'result': 1, 'error': 'null', 'data': '좋아요'}
         else:
-            data = {'result': 0,  'field': 'like', 'message': '좋아요 취소'}
-            contents_like.delete()
-
-        return Response(data, status=status.HTTP_200_OK)
-
-
-    def get(self, request, *args, **kwargs):
-
-        user_pk = self.request.GET.get('user', None)
-        user = get_user(user_pk)
-
-        contents_pk = self.request.GET.get('contents', None)
-        contents = get_object_or_404(Contents, pk=contents_pk)
-
-        try:
-            Like.objects.get(contents=contents, user=user)
-            data = {'result': 1, 'field': 'like', 'message': '좋아요를 클릭했습니다.'}
-        except Like.DoesNotExist:
-            data = {'result': 0, 'field': 'like', 'message': '좋아요를 클릭하지 않았습니다.'}
-
-        return Response(data, status=status.HTTP_200_OK)
-
-class LikeAPI(APIView):
-    """
-    좋아요
-
-    ---
-    # /contents/like
-    """
-
-    serializer_class = LikeSerializer
-    queryset = Like.objects.all()
-    serializer = serializer_class(queryset, many=True)
-
-    @swagger_auto_schema( request_body=openapi.Schema(
-
-        type=openapi.TYPE_OBJECT,
-        required=['user', 'contents'],
-        properties={
-            'user': openapi.Schema(type=openapi.TYPE_INTEGER, description='로그인시 전달받은 사용자 id 값'),
-            'contents': openapi.Schema(type=openapi.TYPE_INTEGER, description='contents id')
-        },
-    ),
-        responses={
-            status.HTTP_200_OK: openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-               'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0, 1'),
-               'field': openapi.Schema(type=openapi.TYPE_STRING, description='like'),
-               'message': openapi.Schema(type=openapi.TYPE_STRING, description='좋아요 취소, 좋아요'),
-                },
-            ),
-        },
-    )
-    def post(self, request, *args, **kwargs):
-
-        user_pk = self.request.data.get('user', None)
-        user = get_user(user_pk)
-
-        contents_pk = self.request.data.get('contents', None)
-        contents = get_object_or_404(Contents, pk=contents_pk)
-        contents_like, contents_like_created = contents.like_set.get_or_create(user=user)
-
-        if contents_like_created:
-            data = {'result': 1, 'field': 'like', 'message': '좋아요'}
-        else:
-            data = {'result': 0,  'field': 'like', 'message': '좋아요 취소'}
+            data = {'result': 2,  'error': 'null', 'data': '좋아요 취소'}
             contents_like.delete()
 
         return Response(data, status=status.HTTP_200_OK)
@@ -520,14 +463,17 @@ class LikeCheckAPI(APIView):
     @swagger_auto_schema(
         manual_parameters=[user, contents],
         responses={
-            status.HTTP_200_OK: openapi.Schema(
+            200: openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
                'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0, 1'),
-               'field': openapi.Schema(type=openapi.TYPE_STRING, description='like'),
-               'message': openapi.Schema(type=openapi.TYPE_STRING, description='좋아요를 클릭하지 않았습니다., 좋아요를 클릭했습니다.'),
+               'error': openapi.Schema(type=openapi.TYPE_STRING, description='null'),
+               'data': openapi.Schema(type=openapi.TYPE_STRING, description='좋아요를 클릭하지 않았습니다., 좋아요를 클릭했습니다.'),
                 },
             ),
+            400:
+                error_collection.USERNAME_NOT_FOUND.as_md() +
+                error_collection.CONTENTS_NOT_FOUNDS.as_md()
         },
     )
 
@@ -537,16 +483,15 @@ class LikeCheckAPI(APIView):
         user = get_user(user_pk)
 
         contents_pk = self.request.GET.get('contents', None)
-        contents = get_object_or_404(Contents, pk=contents_pk)
+        contents = get_contents(contents_pk)
 
         try:
             Like.objects.get(contents=contents, user=user)
-            data = {'result': 1, 'field': 'like', 'message': '좋아요를 클릭했습니다.'}
+            data = {'result': 1, 'error': 'null', 'data': '좋아요를 클릭했습니다.'}
         except Like.DoesNotExist:
-            data = {'result': 0, 'field': 'like', 'message': '좋아요를 클릭하지 않았습니다.'}
+            data = {'result': 0, 'error': 'null', 'data': '좋아요를 클릭하지 않았습니다.'}
 
         return Response(data, status=status.HTTP_200_OK)
-
 
 
 class UnLikeAPI(APIView):
@@ -570,14 +515,17 @@ class UnLikeAPI(APIView):
             },
         ),
         responses={
-            status.HTTP_200_OK: openapi.Schema(
+            200: openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
                'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0, 1'),
-               'field': openapi.Schema(type=openapi.TYPE_STRING, description='unlike'),
-               'message': openapi.Schema(type=openapi.TYPE_STRING, description='싫어요 취소, 싫어요'),
+               'error': openapi.Schema(type=openapi.TYPE_STRING, description='null'),
+               'data': openapi.Schema(type=openapi.TYPE_STRING, description='싫어요 취소, 싫어요'),
                 },
-            )
+            ),
+            400:
+                error_collection.USERNAME_NOT_FOUND.as_md() +
+                error_collection.CONTENTS_NOT_FOUNDS.as_md()
         },
     )
     def post(self, request, *args, **kwargs):
@@ -586,14 +534,15 @@ class UnLikeAPI(APIView):
         user = get_user(user_pk)
 
         contents_pk = self.request.data.get('contents', None)
-        contents = get_object_or_404(Contents, pk=contents_pk)
+        contents = get_contents(contents_pk)
+
         contents_unlike, contents_unlike_created = contents.unlike_set.get_or_create(user=user)
 
         if contents_unlike_created:
-            data = {'result': 1, 'field': 'unlike',  'message': '싫어요'}
+            data = {'result': 1, 'error': 'null',  'data': '싫어요'}
         else:
             contents_unlike.delete()
-            data = {'result': 0, 'field': 'unlike',  'message': '싫어요 취소'}
+            data = {'result': 0, 'error': 'null',  'data': '싫어요 취소'}
 
         return Response(data, status=status.HTTP_200_OK)
 
@@ -612,14 +561,17 @@ class UnLikeCheckAPI(APIView):
     @swagger_auto_schema(
         manual_parameters=[user, contents],
         responses={
-            status.HTTP_200_OK: openapi.Schema(
+            200: openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
                'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0, 1'),
-               'field': openapi.Schema(type=openapi.TYPE_STRING, description='unlike'),
-               'message': openapi.Schema(type=openapi.TYPE_STRING, description='싫어요를 클릭하지 않았습니다., 싫어요를 클릭했습니다.'),
+               'error': openapi.Schema(type=openapi.TYPE_STRING, description='null'),
+               'data': openapi.Schema(type=openapi.TYPE_STRING, description='싫어요를 클릭하지 않았습니다., 싫어요를 클릭했습니다.'),
                 },
-            )
+            ),
+            400:
+                error_collection.USERNAME_NOT_FOUND.as_md() +
+                error_collection.CONTENTS_NOT_FOUNDS.as_md()
         },
     )
 
@@ -629,13 +581,13 @@ class UnLikeCheckAPI(APIView):
         user = get_user(user_pk)
 
         contents_pk = self.request.GET.get('contents', None)
-        contents = get_object_or_404(Contents, pk=contents_pk)
+        contents = get_contents(contents_pk)
 
         try:
             UnLike.objects.get(contents=contents, user=user)
-            data = {'result': 1, 'field': 'unlike', 'message': '싫어요를 클릭했습니다.'}
+            data = {'result': 1, 'error': 'null', 'data': '싫어요를 클릭했습니다.'}
         except UnLike.DoesNotExist:
-            data = {'result': 0, 'field': 'unlike', 'message': '싫어요를 클릭하지 않았습니다.'}
+            data = {'result': 0, 'error': 'null', 'data': '싫어요를 클릭하지 않았습니다.'}
 
         return Response(data, status=status.HTTP_200_OK)
 
@@ -675,13 +627,20 @@ class CommentCreateAPI(CreateAPIView):
                 'comment_content': openapi.Schema(type=openapi.TYPE_STRING, description='string'),
             }
         ),
-        responses={200: CommentSerializer()}
+        responses={
+            200: CommentSerializer(),
+            400:
+                error_collection.USERNAME_NOT_FOUND.as_md() +
+                error_collection.CONTENTS_NOT_FOUNDS.as_md()
+        }
     )
     def get_serializer_class(self):
         user_pk = self.request.data.get('user', None)
         user = get_user(user_pk)
 
-        get_object_or_404(Contents, pk=self.request.data.get("contents"))
+        contents_pk = self.request.data.get('contents', None)
+        get_contents(contents_pk)
+
         return create_comment_serializer(parent_id=self.request.GET.get("parent_id", None), user=user)
 
 class CommentListAPI(APIView):
@@ -696,16 +655,24 @@ class CommentListAPI(APIView):
 
     @swagger_auto_schema(
         manual_parameters=[user, contents],
-        responses={200: CommentSerializer()}
+        responses={
+            200: CommentSerializer(),
+            400:
+                error_collection.USERNAME_NOT_FOUND.as_md() +
+                error_collection.CONTENTS_NOT_FOUNDS.as_md()
+        }
     )
     def get(self, *args, **kwargs):
         user_pk = self.request.GET.get('user', None)
         get_user(user_pk)
 
-        contents = self.request.GET.get("contents")
-        queryset = Comment.objects.filter(Q(contents=contents) & Q(parent=None))
+        contents_pk = self.request.GET.get("contents")
+        get_contents(contents_pk)
+
+        queryset = Comment.objects.filter(Q(contents=contents_pk) & Q(parent=None))
         serializer = self.serializer_class(queryset, many=True)
-        return Response(serializer.data)
+        data = {'result': 0, 'error': 'null', 'data': serializer.data}
+        return Response(data)
 
 class CommentDeleteAPI(APIView):
 
@@ -726,22 +693,18 @@ class CommentDeleteAPI(APIView):
             },
         ),
         responses={
-            status.HTTP_200_OK: openapi.Schema(
+            200: openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
                'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='1'),
-               'field': openapi.Schema(type=openapi.TYPE_INTEGER, description='comments'),
-               'message': openapi.Schema(type=openapi.TYPE_STRING, description='삭제되었습니다.'),
+               'error': openapi.Schema(type=openapi.TYPE_INTEGER, description='null'),
+               'data': openapi.Schema(type=openapi.TYPE_STRING, description='삭제되었습니다.'),
                 },
             ),
-            status.HTTP_400_BAD_REQUEST: openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0'),
-                    'field': openapi.Schema(type=openapi.TYPE_INTEGER, description='comments'),
-                    'message': openapi.Schema(type=openapi.TYPE_STRING, description='작성자만 삭제 가능합니다.'),
-                },
-            ),
+            400:
+                error_collection.USERNAME_NOT_FOUND.as_md() +
+                error_collection.COMMENT_DELETE_USER_NOT_MATCH.as_md() +
+                error_collection.COMMENT_NOT_FOUNDS.as_md()
         },
     )
     def post(self, request, pk=None):
@@ -752,15 +715,14 @@ class CommentDeleteAPI(APIView):
         comment = self.get_object(pk)
 
         if user.pk != comment.user.pk:
-            data = {'comments': '작성자만 삭제 가능합니다.'}
-            raise serializers.ValidationError(data)
+            raise CustomValidation('-27', '작성자만 삭제 가능합니다.')
 
         comment.delete()
 
         data = {
             "result": 1,
-            "field": "comments",
-            "message": "삭제되었습니다."
+            "error": "null",
+            "data": "댓글이 삭제되었습니다."
         }
         return Response(data, status=status.HTTP_200_OK)
 
@@ -769,7 +731,7 @@ class CommentDeleteAPI(APIView):
             comment = Comment.objects.get(pk=pk)
             return comment
         except Comment.DoesNotExist:
-            raise Http404
+            raise CustomValidation('-28', '등록된 댓글이 없습니다.')
 
     def retrieve(self, request, pk=None):
         comment = self.get_object(pk)

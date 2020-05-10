@@ -17,12 +17,14 @@ def contents_audio_path(instance, filename):
     arr = [choice(string.ascii_letters) for _ in range(8)]
     pid = ''.join(arr)
     extension = filename.split('.')[-1]
-    return 'contents/{}/{}.{}'.format(instance.user_id, pid, extension)
+    return 'contents/{}/{}.wav'.format(instance.user_id, pid)
 
 class QRDatas(models.Model):
     qr_data = models.CharField(max_length=255, unique=True)
     is_active = models.SmallIntegerField(choices=IS_ACTIVE, default=0, verbose_name='사용 여부')
     activation_code = models.IntegerField(blank=True)
+    contents_type = models.SmallIntegerField(choices=CONTENTS_TYPE, default=0, verbose_name='컨텐츠타입', blank=True,
+                                             null=True)
     create_dt = models.DateField(auto_now_add=True, verbose_name='생성일')
     update_dt = models.DateTimeField(auto_now=True, verbose_name='수정일')
     
@@ -43,9 +45,8 @@ class Contents(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="usercontents")
     qr_data = models.OneToOneField(QRDatas, on_delete=models.CASCADE, related_name="qrdatascontents")
     title = models.CharField(max_length=100, verbose_name='제목')
-    contents_type = models.SmallIntegerField(choices=CONTENTS_TYPE, default=0, verbose_name='컨텐츠타입', blank=True)
     audio_url = models.FileField(upload_to=contents_audio_path,  verbose_name='음성 데이터 주소', blank=True, null=True)
-    recog_type = models.SmallIntegerField(choices=RECOG_TYPE, default=0, verbose_name='인식타입', blank=True)
+    recog_type = models.SmallIntegerField(choices=RECOG_TYPE, default=0, verbose_name='인식타입', blank=True, null=True)
     video_url = models.URLField(max_length=100, verbose_name='영상주소', blank=True)
     label_text = models.CharField(max_length=20, verbose_name='label_text', blank=True)
     neon_text = models.CharField(max_length=20, verbose_name='neon_text', blank=True)
@@ -126,7 +127,7 @@ class ContentsFiles(models.Model):
     create_dt = models.DateTimeField(auto_now_add=True, verbose_name='등록일', null=True)
 
     class Meta:
-        verbose_name = '4. 이미지'
+        verbose_name = '4. 파일'
         verbose_name_plural = '4. 이미지'
         
 class Comment(models.Model):
