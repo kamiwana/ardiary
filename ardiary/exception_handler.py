@@ -8,7 +8,7 @@ class CustomValidation(APIException):
 
     def __init__(self, result, detail):
        # if status_code is not None: self.status_code = status_code
-        self.status_code = status.HTTP_400_BAD_REQUEST
+        self.status_code = status.HTTP_200_OK
         if detail is not None:
             self.detail = {'result': int(result), 'error': detail, 'data': {}}
         else: self.detail = {'detail': force_text(self.default_detail)}
