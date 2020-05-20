@@ -144,7 +144,6 @@ class ContentsUpdateAPI(APIView):
             raise CustomValidation('0', serializer.errors)
 
 class QRDataDetailAPI(APIView):
-    parser_classes = (MultiPartParser,)
     serializer_class = QRDatasSerializer
     queryset = QRDatas.objects.all()
 
@@ -606,32 +605,57 @@ class CommentCreateAPI(CreateAPIView):
             "contents" : contents id,
             "comment_content" : 댓글 내용
          }
-        - RESPONSE SCHEMA: application/json
+        - RESPONSE SCHEMA 200: application/json
          {
-            "id": 댓글 id,
-            "contents": contents id,
-            "parent": 상위 댓글 id,
-            "comment_content":  댓글 내용,
-            "create_dt": 작성일
+            "result": 1,
+            "error": null,
          }
+        - RESPONSE SCHEMA 400: application/json
+         {
+            "result": "-8"
+            "error": "존재하지 않는 ID 입니다."
+            "data": "{}"
+        }
+        - RESPONSE SCHEMA 400: application/json
+        {
+            "result": "-17"
+            "error": "등록된 컨텐츠가 없습니다."
+            "data": "{}"
+        }
+        - RESPONSE SCHEMA 400: application/json
+        {
+            "result": "-31"
+            "error": "댓글을 입력해주세요."
+            "data": "{}"
+        }
     """
 
     serializer_class = CommentSerializer
+    queryset = Comment.objects.all()
 
     @swagger_auto_schema(
         manual_parameters=[parent_id],
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                'contents': openapi.Schema(type=openapi.TYPE_INTEGER, description='integer'),
-                'comment_content': openapi.Schema(type=openapi.TYPE_STRING, description='string'),
+                'user': openapi.Schema(type=openapi.TYPE_INTEGER, description='로그인시 전달받은 사용자 id 값'),
+                'contents': openapi.Schema(type=openapi.TYPE_INTEGER, description='contents id'),
+                'comment_content': openapi.Schema(type=openapi.TYPE_STRING, description='댓글'),
             }
         ),
         responses={
-            200: CommentSerializer(),
+            200: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+               'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='1'),
+               'error': openapi.Schema(type=openapi.TYPE_STRING, description='null'),
+               'data': openapi.Schema(type=openapi.TYPE_STRING, description='댓글이 등록되었습니다.'),
+                },
+            ),
             400:
                 error_collection.USERNAME_NOT_FOUND.as_md() +
-                error_collection.CONTENTS_NOT_FOUNDS.as_md()
+                error_collection.CONTENTS_NOT_FOUNDS.as_md()+
+                error_collection.COMMENT_IS_BLANK.as_md()
         }
     )
     def get_serializer_class(self):
@@ -641,7 +665,16 @@ class CommentCreateAPI(CreateAPIView):
         contents_pk = self.request.data.get('contents', None)
         get_contents(contents_pk)
 
+        comment_content = self.request.data.get('comment_content', None)
+
+        if comment_content is None:
+                raise CustomValidation('-31', "댓글을 입력해주세요.")
+        else:
+            if len(comment_content) < 1:
+                raise CustomValidation('-31', "댓글을 입력해주세요.")
+
         return create_comment_serializer(parent_id=self.request.GET.get("parent_id", None), user=user)
+
 
 class CommentListAPI(APIView):
     

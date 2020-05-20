@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import *
 
+
 class LikeInline(admin.TabularInline):
     model = Like
 
@@ -19,6 +20,7 @@ class ContentsFileInline(admin.TabularInline):
 class ContentsPasswordInline(admin.TabularInline):
     model = ContentsPassword
 
+
 @admin.register(QRDatas)
 class QRDatasAdmin(admin.ModelAdmin):
     list_display = ('qr_data', 'is_active','contents_type', 'contents_title', 'username', 'activation_code',  'create_dt')
@@ -30,6 +32,17 @@ class QRDatasAdmin(admin.ModelAdmin):
 
 @admin.register(Contents)
 class ContentsAdmin(admin.ModelAdmin):
+
+    def delete_queryset(self, request, queryset):
+        for obj in queryset:
+            QRDatas.objects.filter(pk=obj.qr_data_id).update(is_active=0)
+            obj.delete()
+
+    def delete_model(self, request, obj):
+        QRDatas.objects.filter(pk=obj.qr_data_id).update(is_active=0)
+        obj.delete()
+
+
     list_display = ('id', 'title', 'user', 'view_count', 'comment_count', 'like_count', 'unlike_count', 'update_dt')
     list_display_links = ['title']
     # 필터링 항목 설정
@@ -37,6 +50,7 @@ class ContentsAdmin(admin.ModelAdmin):
     # 객체 검색 필드 설정
     search_fields = ('title', 'user')
     inlines = [ContentsPasswordInline, ContentsFileInline,  CommentInline, LikeInline, UnLikeInline, ]
+    actions = [delete_model]
 
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):

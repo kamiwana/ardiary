@@ -102,13 +102,16 @@ class ContentsCreateRequestSerializer(serializers.ModelSerializer):
                                                                       "5-카카오톡, 6-카카오톡, 7-유튜브, 8-기타 URL")
     effect_type = serializers.IntegerField(required=False, help_text="1-폭죽, 2-스노우, 3-선물상자")
     char_type = serializers.IntegerField(required=False, help_text="1-사람, 2-팬더")
-    contents_files = serializers.FileField(required=False, help_text="사진이나 이미지 데이터 여러장 가능")
-
+    contents_files = serializers.FileField(required=False, help_text="이미지나 영상 데이터 여러장 가능")
+    contents_files_type = serializers.CharField(required=False, help_text="1:영상, 2:이미지 - contents_files 갯수에 "
+                                                                          "맞춰서 ',' 로 구분 (ex)1,2 ) ")
     class Meta:
         model = Contents
         fields = ('user', 'qr_data', 'activation_code', 'title', 'recog_type', 'video_url',
                   'label_text', 'neon_text', 'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
-                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',  'contents_files')
+                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',  'contents_files',
+                  'contents_files_type'
+                  )
 
 class ContentsSerializer(serializers.ModelSerializer):
     user = serializers.CharField(read_only=True)
@@ -134,11 +137,14 @@ class ContentsSerializer(serializers.ModelSerializer):
         contents = Contents.objects.create(user=user, qr_data=qr_data,  **validated_data)
         QRDatas.objects.filter(pk=contents.qr_data.pk).update(is_active=1)
 
-        for file_item in self.initial_data.getlist('contents_files'):
-            c = ContentsFiles(file=file_item, contents=contents, user=contents.user)
-            c.save()
-        return contents
-
+        contents_files = self.initial_data.getlist('contents_files')
+        if len(contents_files) > 0:
+            files_type = self.initial_data.getlist('contents_files_type')
+            files_type_list = files_type[0].split(',')
+            for file_item, file_type in zip(contents_files, files_type_list):
+                c = ContentsFiles(file=file_item, file_type=file_type,  contents=contents,  user=contents.user)
+                c.save()
+            return contents
 
 class ContentsUpdateRequestSerializer(serializers.ModelSerializer):
 
@@ -148,16 +154,18 @@ class ContentsUpdateRequestSerializer(serializers.ModelSerializer):
     effect_type = serializers.IntegerField(required=False, help_text="1-폭죽, 2-스노우, 3-선물상자")
     char_type = serializers.IntegerField(required=False, help_text="1-사람, 2-팬더")
     contents_files = serializers.FileField(required=False, help_text="사진이나 이미지 데이터 여러장 가능")
-
+    contents_files_type = serializers.CharField(required=False, help_text="1:영상, 2:이미지 - contents_files 갯수에 "
+                                                                          "맞춰서 ',' 로 구분 (ex)1,2 ) ")
     class Meta:
         model = Contents
         fields = ('title', 'recog_type', 'video_url', 'label_text', 'neon_text',
                   'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
-                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',  'contents_files')
+                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',  'contents_files',
+                  'contents_files_type'
+                  )
 
 class ContentsUpdateSerializer(serializers.ModelSerializer):
     contents_files = ContentsFilesSerializer(many=True, read_only=True)
-
     class Meta:
         model = Contents
         fields = ('pk', 'user',  'username',  'title',  'recog_type', 'video_url', 'label_text', 'neon_text',
@@ -166,12 +174,14 @@ class ContentsUpdateSerializer(serializers.ModelSerializer):
                   'contents_files')
 
     def update(self, instance, validated_data):
-
-        if len(self.initial_data.getlist('contents_files')) > 0:
-            contents_files = ContentsFiles.objects.filter(contents_id=instance.id)
-            contents_files.delete()
-            for file_item in self.initial_data.getlist('contents_files'):
-                c = ContentsFiles(file=file_item, contents=instance,  user=instance.user)
+        contents_files = self.initial_data.getlist('contents_files')
+        if len(contents_files) > 0:
+            contents_files_db = ContentsFiles.objects.filter(contents_id=instance.id)
+            contents_files_db.delete()
+            files_type = self.initial_data.getlist('contents_files_type')
+            files_type_list = files_type[0].split(',')
+            for file_item, file_type in zip(contents_files, files_type_list):
+                c = ContentsFiles(file=file_item, file_type=file_type,  contents=instance,  user=instance.user)
                 c.save()
 
         instance.title = validated_data.get('title', instance.title)
@@ -200,7 +210,6 @@ class ContentsRequestSerializer(serializers.ModelSerializer):
                   'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
                   'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',  'contents_files')
 
-
 class QRDatasSerializer(serializers.ModelSerializer):
     qrdatascontents = ContentsSerializer(read_only=True)
 
@@ -210,9 +219,12 @@ class QRDatasSerializer(serializers.ModelSerializer):
 
 def create_comment_serializer(parent_id=None, user=None):
     class CommentCreateSerializer(serializers.ModelSerializer):
+        result = serializers.IntegerField(required=False,   default=1)
+        error = serializers.CharField(max_length=5, required=False, default='null')
+
         class Meta:
             model = Comment
-            fields = ('id', 'contents', 'parent', 'comment_content', 'create_dt',)
+            fields = ('result', 'error', 'id', 'contents', 'parent', 'comment_content', 'create_dt')
 
         def __init__(self, *args, **kwargs):
             self.parent_obj = None
@@ -230,7 +242,7 @@ def create_comment_serializer(parent_id=None, user=None):
                 contents=contents,
                 user=user,
                 comment_content=content,
-                parent=parent_obj,
+                parent=parent_obj
                     )
 
             return comment

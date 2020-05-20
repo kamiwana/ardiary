@@ -212,4 +212,10 @@ USERNAME_EXIST = ErrorCollection(
     error='해당 사용자 이름은 이미 존재합니다.',
     data='{}'
 )
+COMMENT_IS_BLANK = ErrorCollection(
+    result=-31,
+    status=status.HTTP_400_BAD_REQUEST,
+    error='댓글을 입력해주세요.',
+    data='{}'
+)
 

@@ -9,6 +9,8 @@ def contents_path(instance, filename):
     arr = [choice(string.ascii_letters) for _ in range(8)]
     pid = ''.join(arr)
     extension = filename.split('.')[-1]
+    if instance.file_type == '1':
+        extension = "mp4"
     return 'contents/{}/{}.{}'.format(instance.user_id, pid, extension)
 
 def contents_audio_path(instance, filename):
@@ -47,16 +49,16 @@ class Contents(models.Model):
     title = models.CharField(max_length=100, verbose_name='제목')
     audio_url = models.FileField(upload_to=contents_audio_path,  verbose_name='음성 데이터 주소', blank=True, null=True)
     recog_type = models.SmallIntegerField(choices=RECOG_TYPE, default=0, verbose_name='인식타입', blank=True, null=True)
-    video_url = models.URLField(max_length=100, verbose_name='영상주소', blank=True)
-    label_text = models.CharField(max_length=20, verbose_name='label_text', blank=True)
-    neon_text = models.CharField(max_length=20, verbose_name='neon_text', blank=True)
+    video_url = models.URLField(max_length=255, verbose_name='영상주소', blank=True)
+    label_text = models.CharField(max_length=255, verbose_name='label_text', blank=True)
+    neon_text = models.CharField(max_length=255, verbose_name='neon_text', blank=True)
     neon_style = models.IntegerField(verbose_name='neon_style', blank=True, null=True)
     neon_effect = models.IntegerField(verbose_name='neon_effect', blank=True, null=True)
     neon_material = models.IntegerField(verbose_name='neon_material', blank=True, null=True)
     link_01_type = models.SmallIntegerField(choices=LIKE_TYPE, default=0, verbose_name='link_01_type', blank=True, null=True)
-    link_01_url = models.URLField(max_length=100, verbose_name='link_01_url', blank=True, null=True)
+    link_01_url = models.URLField(max_length=255, verbose_name='link_01_url', blank=True, null=True)
     link_02_type = models.SmallIntegerField(choices=LIKE_TYPE, default=0, verbose_name='link_02_type', blank=True, null=True)
-    link_02_url = models.URLField(max_length=100, verbose_name='link_02_url', blank=True, null=True)
+    link_02_url = models.URLField(max_length=255, verbose_name='link_02_url', blank=True, null=True)
     effect_type = models.SmallIntegerField(choices=EFFECT_TYPE, default=0, verbose_name='effect_type', blank=True, null=True)
     char_type = models.SmallIntegerField(choices=CHAR_TYPE, default=0, verbose_name='char_type', blank=True, null=True)
     update_dt = models.DateTimeField(auto_now=True, verbose_name='등록일', null=True)
@@ -115,7 +117,6 @@ class ContentsPassword(models.Model):
         except:
             return ""
 
-
     class Meta:
         verbose_name = '3. 패스워드'
         verbose_name_plural = '3. 패스워드'
@@ -123,6 +124,7 @@ class ContentsPassword(models.Model):
 class ContentsFiles(models.Model):
     contents = models.ForeignKey(Contents, on_delete=models.CASCADE, related_name='contents_files')
     file = models.FileField(upload_to=contents_path, verbose_name='파일', null=False)
+    file_type = models.SmallIntegerField(choices=FILE_TYPE, default=1, blank=True, null=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     create_dt = models.DateTimeField(auto_now_add=True, verbose_name='등록일', null=True)
 
