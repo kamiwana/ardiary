@@ -61,6 +61,7 @@ class Contents(models.Model):
     link_02_url = models.URLField(max_length=255, verbose_name='link_02_url', blank=True, null=True)
     effect_type = models.SmallIntegerField(choices=EFFECT_TYPE, default=0, verbose_name='effect_type', blank=True, null=True)
     char_type = models.SmallIntegerField(choices=CHAR_TYPE, default=0, verbose_name='char_type', blank=True, null=True)
+    on_air = models.SmallIntegerField(choices=IS_ONAIR, default=0, blank=True,null=True)
     update_dt = models.DateTimeField(auto_now=True, verbose_name='등록일', null=True)
     like_user_set = models.ManyToManyField(settings.AUTH_USER_MODEL,
                                            blank=True,
