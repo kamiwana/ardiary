@@ -25,6 +25,7 @@ class ContentsPasswordInline(admin.TabularInline):
 class QRDatasAdmin(admin.ModelAdmin):
     list_display = ('qr_data', 'is_active','contents_type', 'contents_title', 'username', 'activation_code',  'create_dt')
     list_display_links = ['qr_data']
+    list_editable = ['is_active']
     # 필터링 항목 설정
     list_filter = ('qr_data', 'is_active',)
     # 객체 검색 필드 설정
@@ -43,8 +44,9 @@ class ContentsAdmin(admin.ModelAdmin):
         obj.delete()
 
 
-    list_display = ('id', 'title', 'user', 'view_count', 'comment_count', 'like_count', 'unlike_count', 'update_dt')
+    list_display = ('id', 'title', 'user', 'on_air','view_count', 'comment_count', 'like_count', 'unlike_count', 'update_dt')
     list_display_links = ['title']
+    list_editable = ['on_air']
     # 필터링 항목 설정
     list_filter = ('update_dt',)
     # 객체 검색 필드 설정
