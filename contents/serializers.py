@@ -102,6 +102,7 @@ class ContentsCreateRequestSerializer(serializers.ModelSerializer):
                                                                       "5-카카오톡, 6-카카오톡, 7-유튜브, 8-기타 URL")
     effect_type = serializers.IntegerField(required=False, help_text="1-폭죽, 2-스노우, 3-선물상자")
     char_type = serializers.IntegerField(required=False, help_text="1-사람, 2-팬더")
+    on_air = serializers.IntegerField(required=False, help_text="0-활성, 1-비활성")
     contents_files = serializers.FileField(required=False, help_text="이미지나 영상 데이터 여러장 가능")
     contents_files_type = serializers.CharField(required=False, help_text="1:영상, 2:이미지 - contents_files 갯수에 "
                                                                           "맞춰서 ',' 로 구분 (ex)1,2 ) ")
@@ -109,7 +110,7 @@ class ContentsCreateRequestSerializer(serializers.ModelSerializer):
         model = Contents
         fields = ('user', 'qr_data', 'activation_code', 'title', 'recog_type', 'video_url',
                   'label_text', 'neon_text', 'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
-                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',  'contents_files',
+                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type', 'on_air', 'contents_files',
                   'contents_files_type'
                   )
 
@@ -123,7 +124,7 @@ class ContentsSerializer(serializers.ModelSerializer):
         model = Contents
         fields = ('pk',  'qr_data', 'user', 'username', 'title', 'password', 'audio_url', 'recog_type',
                   'video_url', 'label_text', 'neon_text', 'neon_style', 'neon_effect', 'neon_material',
-                  'link_01_type', 'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',
+                  'link_01_type', 'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type','on_air',
                   'view_count', 'like_count','unlike_count', 'comment_count', 'update_dt',
                   'contents_comment', 'contents_files')
         read_only_fields = ('pk', 'update_dt', 'like_count', 'unlike_count', 'comment_count', 'username', 'qr_code',
@@ -153,6 +154,7 @@ class ContentsUpdateRequestSerializer(serializers.ModelSerializer):
     link_02_type = serializers.IntegerField(required=False, help_text="1-페이스북, 2-사진, 3-쇼핑몰, 4-전화번호, 5-카카오톡, 6-카카오톡, 7-유튜브, 8-기타 URL")
     effect_type = serializers.IntegerField(required=False, help_text="1-폭죽, 2-스노우, 3-선물상자")
     char_type = serializers.IntegerField(required=False, help_text="1-사람, 2-팬더")
+    on_air = serializers.IntegerField(required=False, help_text="0-활성, 1-비활성")
     contents_files = serializers.FileField(required=False, help_text="사진이나 이미지 데이터 여러장 가능")
     contents_files_type = serializers.CharField(required=False, help_text="1:영상, 2:이미지 - contents_files 갯수에 "
                                                                           "맞춰서 ',' 로 구분 (ex)1,2 ) ")
@@ -160,7 +162,7 @@ class ContentsUpdateRequestSerializer(serializers.ModelSerializer):
         model = Contents
         fields = ('title', 'recog_type', 'video_url', 'label_text', 'neon_text',
                   'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
-                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',  'contents_files',
+                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type', 'on_air', 'contents_files',
                   'contents_files_type'
                   )
 
@@ -170,7 +172,7 @@ class ContentsUpdateSerializer(serializers.ModelSerializer):
         model = Contents
         fields = ('pk', 'user',  'username',  'title',  'recog_type', 'video_url', 'label_text', 'neon_text',
                   'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
-                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type', 'update_dt',
+                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type','on_air', 'update_dt',
                   'contents_files')
 
     def update(self, instance, validated_data):
@@ -197,6 +199,8 @@ class ContentsUpdateSerializer(serializers.ModelSerializer):
         instance.link_02_url = validated_data.get('link_02_url', instance.link_02_url)
         instance.effect_type = validated_data.get('effect_type', instance.effect_type)
         instance.char_type = validated_data.get('char_type', instance.char_type)
+        instance.on_air = validated_data.get('on_air', instance.on_air)
+
 
         instance.save()
         return instance
@@ -208,7 +212,7 @@ class ContentsRequestSerializer(serializers.ModelSerializer):
         model = Contents
         fields = ('title',  'recog_type', 'video_url', 'label_text', 'neon_text',
                   'neon_style', 'neon_effect', 'neon_material', 'audio_url', 'link_01_type',
-                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type',  'contents_files')
+                  'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type', 'on_air', 'contents_files')
 
 class QRDatasSerializer(serializers.ModelSerializer):
     qrdatascontents = ContentsSerializer(read_only=True)
