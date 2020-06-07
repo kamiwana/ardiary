@@ -122,7 +122,7 @@ class ContentsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Contents
-        fields = ('pk',  'qr_data', 'user', 'username', 'title', 'password', 'audio_url', 'recog_type',
+        fields = ('pk',  'qr_data', 'contents_type', 'user', 'username', 'title', 'password', 'audio_url', 'recog_type',
                   'video_url', 'label_text', 'neon_text', 'neon_style', 'neon_effect', 'neon_material',
                   'link_01_type', 'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type','on_air',
                   'view_count', 'like_count','unlike_count', 'comment_count', 'update_dt',

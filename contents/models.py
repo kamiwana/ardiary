@@ -99,6 +99,8 @@ class Contents(models.Model):
     def qr_code(self):
         return self.qr_data.qr_data
 
+    def contents_type(self):
+        return self.qr_data.contents_type
 
     def password(self):
         try:

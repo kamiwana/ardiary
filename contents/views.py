@@ -204,6 +204,93 @@ class QRDataDetailAPI(APIView):
             }
           return Response(data, status=status.HTTP_200_OK)
 
+class ContentsDetailAPI(APIView):
+    serializer_class = QRDatasSerializer
+    queryset = QRDatas.objects.all()
+
+    @swagger_auto_schema(
+        responses={
+            200: QRDatasSerializer,
+            400:
+                error_collection.QRDATA_NOT_FOUNDS.as_md() +
+                error_collection.CONTENTS_NOT_FOUNDS.as_md() +
+                error_collection.NOT_FOUNT.as_md()
+        },
+    )
+    def get(self, request, qr_data=None):
+        """
+              QRCode로 컨텐츠 조회
+
+            ---
+            # /contents/{qr_data}
+            ## 내용
+                - recog_type : 1-이미지기반, 2-공간기반, 3-음성기반
+                - link_01_type, link_02_type : 1-페이스북, 2-사진, 3-쇼핑몰, 4-전화번호, 5-카카오톡, 6-카카오톡, 7-유튜브, 8-기타URL
+                - effect_type : 1-폭죽, 2-스노우, 3-선물상자
+                - char_type : 1-사람, 2-팬더
+                - contents_comment : 댓글 리스트
+                - contents_files : 등록된 파일리스트
+        """
+
+        try:
+            qr_data = QRDatas.objects.get(qr_data=qr_data)
+        except QRDatas.DoesNotExist:
+            raise CustomValidation('-16', '등록된 QR코드가 없습니다.')
+
+        try:
+            contents = Contents.objects.get(pk=qr_data.qrdatascontents.pk)
+
+            serializer = self.serializer_class(qr_data)
+            data = {'result': 0, 'error': 'null', 'data': serializer.data}
+            return Response(data)
+        except Contents.DoesNotExist:
+            data = {
+                "result": 19,
+                "error": "등록된 컨텐츠가 없습니다.",
+                "data": "{}"
+            }
+            return Response(data, status=status.HTTP_200_OK)
+class ContentsListAPI(APIView):
+    serializer_class = ContentsSerializer
+    queryset = Contents.objects.all()
+
+    @swagger_auto_schema(
+        responses={
+            200: ContentsSerializer,
+            400:
+                error_collection.CONTENTS_NOT_FOUNDS.as_md() +
+                error_collection.NOT_FOUNT.as_md()
+        },
+    )
+    def get(self, request, user=None):
+        """
+              로그인 유저의 보유 AR List API
+
+            ---
+            # /contents/list/{user}
+            ## 내용
+                - recog_type : 1-이미지기반, 2-공간기반, 3-음성기반
+                - link_01_type, link_02_type : 1-페이스북, 2-사진, 3-쇼핑몰, 4-전화번호, 5-카카오톡, 6-카카오톡, 7-유튜브, 8-기타URL
+                - effect_type : 1-폭죽, 2-스노우, 3-선물상자
+                - char_type : 1-사람, 2-팬더
+                - contents_comment : 댓글 리스트
+                - contents_files : 등록된 파일리스트
+        """
+
+        try:
+            contents = Contents.objects.filter(user=user)
+
+            serializer = self.serializer_class(contents, many=True)
+            data = {'result': 0, 'error': 'null', 'data': serializer.data}
+            return Response(data)
+        except Contents.DoesNotExist:
+            data = {
+                "result": 19,
+                "error": "등록된 컨텐츠가 없습니다.",
+                "data": "{}"
+            }
+            return Response(data, status=status.HTTP_200_OK)
+
 class ContentsPasswordCreateAPI(APIView):
     """
     컨텐츠 비밀번호  설정
@@ -393,6 +480,65 @@ class ContentsPasswordAPI(APIView):
             return Response(data, status=status.HTTP_200_OK)
         else:
             raise CustomValidation('-26', "비밀번호가 다릅니다.")
+
+class ContentsPasswordDeleteAPI(APIView):
+    """
+      컨텐츠 비밀번호 삭제
+
+    ---
+    # /contents/password/delete
+    """
+    serializer_class = CommentSerializer
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['user'],
+            properties={
+                'user': openapi.Schema(type=openapi.TYPE_INTEGER, description='로그인시 전달받은 사용자 id 값'),
+                'contents': openapi.Schema(type=openapi.TYPE_INTEGER, description='contents id'),
+            },
+        ),
+        responses={
+            200: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+               'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='1'),
+               'error': openapi.Schema(type=openapi.TYPE_INTEGER, description='null'),
+               'data': openapi.Schema(type=openapi.TYPE_STRING, description='컨텐츠 비밀번호가 삭제되었습니다.'),
+                },
+            ),
+            400:
+                error_collection.CONTENTS_HAS_NOT_USER.as_md() +
+                error_collection.CONTENTS_PASSWORD_NOT_FOUND.as_md()
+        },
+    )
+    def post(self, request, pk=None):
+
+        #로그인 체크
+        user_pk = self.request.data.get('user', None)
+        user = get_user(user_pk)
+
+        # 컨텐츠 여부 체크
+        contents_pk = self.request.data.get('contents', None)
+        contents = get_contents(contents_pk)
+
+        if user != contents.user:
+            raise CustomValidation('-20', '컨텐츠를 등록한 사용자가 아닙니다.')
+
+        try:
+            contents_password = ContentsPassword.objects.get(contents=contents)
+            contents_password.delete()
+
+            data = {
+                "result": 1,
+                "error": "null",
+                "data": "컨텐츠 비밀번호가 삭제되었습니다."
+            }
+
+            return Response(data, status=status.HTTP_200_OK)
+        except ContentsPassword.DoesNotExist:
+            raise CustomValidation('-25', '등록된 비밀번호가 없습니다.')
 
 class LikeAPI(APIView):
     """
@@ -706,6 +852,7 @@ class CommentListAPI(APIView):
         serializer = self.serializer_class(queryset, many=True)
         data = {'result': 0, 'error': 'null', 'data': serializer.data}
         return Response(data)
+
 
 class CommentDeleteAPI(APIView):
 
