@@ -21,15 +21,25 @@ def contents_audio_path(instance, filename):
     extension = filename.split('.')[-1]
     return 'contents/{}/{}.wav'.format(instance.user_id, pid)
 
+def qr_image_path(instance, filename):
+    from random import choice
+    import string
+    arr = [choice(string.ascii_letters) for _ in range(8)]
+    pid = ''.join(arr)
+    extension = filename.split('.')[-1]
+    return 'qrdata/{}/{}.wav'.format(instance.user_id, pid, extension)
+
 class QRDatas(models.Model):
     qr_data = models.CharField(max_length=255, unique=True)
     is_active = models.SmallIntegerField(choices=IS_ACTIVE, default=0, verbose_name='사용 여부')
-    activation_code = models.IntegerField(blank=True)
-    contents_type = models.SmallIntegerField(choices=CONTENTS_TYPE, default=0, verbose_name='컨텐츠타입', blank=True,
-                                             null=True)
-    create_dt = models.DateField(auto_now_add=True, verbose_name='생성일')
+    activation_code = models.IntegerField(blank=True, default=0)
+    contents_type = models.CharField(choices=CONTENTS_TYPE, default='0', verbose_name='컨텐츠타입', blank=True,
+                                             null=True, max_length=2)
+    images = models.FileField(verbose_name='QR코드 이미지', upload_to='qr_image_path', blank=True, null=True)
+    create_dt = models.DateTimeField(auto_now_add=True, verbose_name='생성일')
     update_dt = models.DateTimeField(auto_now=True, verbose_name='수정일')
-    
+    login_admin = models.CharField(max_length=255, blank=True, verbose_name='등록자')
+
     def __str__(self):
         return self.qr_data
 
