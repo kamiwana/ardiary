@@ -11,7 +11,7 @@ def contents_path(instance, filename):
     extension = filename.split('.')[-1]
     if instance.file_type == '1':
         extension = "mp4"
-    return 'contents/{}/{}.{}'.format(instance.user_id, pid, extension)
+    return 'contents/media/{}/{}.{}'.format(instance.user_id, pid, extension)
 
 def contents_audio_path(instance, filename):
     from random import choice
@@ -19,15 +19,16 @@ def contents_audio_path(instance, filename):
     arr = [choice(string.ascii_letters) for _ in range(8)]
     pid = ''.join(arr)
     extension = filename.split('.')[-1]
-    return 'contents/{}/{}.wav'.format(instance.user_id, pid)
+    return 'contents/audio/{}/{}.wav'.format(instance.user_id, pid)
 
 def qr_image_path(instance, filename):
     from random import choice
     import string
-    arr = [choice(string.ascii_letters) for _ in range(8)]
-    pid = ''.join(arr)
-    extension = filename.split('.')[-1]
-    return 'qrdata/{}/{}.wav'.format(instance.user_id, pid, extension)
+
+    name_slice = instance.images.name.split('_')
+    contents_type = name_slice[1][3:4]
+
+    return 'qrdata/{}/{}'.format(contents_type, instance.images.name)
 
 class QRDatas(models.Model):
     qr_data = models.CharField(max_length=255, unique=True)
@@ -35,7 +36,7 @@ class QRDatas(models.Model):
     activation_code = models.IntegerField(blank=True, default=0)
     contents_type = models.CharField(choices=CONTENTS_TYPE, default='0', verbose_name='컨텐츠타입', blank=True,
                                              null=True, max_length=2)
-    images = models.FileField(verbose_name='QR코드 이미지', upload_to='qr_image_path', blank=True, null=True)
+    images = models.FileField(verbose_name='QR코드 이미지', upload_to=qr_image_path, blank=True, null=True)
     create_dt = models.DateTimeField(auto_now_add=True, verbose_name='생성일')
     update_dt = models.DateTimeField(auto_now=True, verbose_name='수정일')
     login_admin = models.CharField(max_length=255, blank=True, verbose_name='등록자')
