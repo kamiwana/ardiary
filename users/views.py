@@ -5,12 +5,46 @@ from django.contrib.auth.models import update_last_login
 from drf_yasg.utils import swagger_auto_schema
 from users.utils import get_user
 from utils import error_collection
-from rest_framework import status
 from ardiary.exception_handler import CustomValidation
 from drf_yasg import openapi
+from django.shortcuts import redirect
+from django.views.generic import FormView, TemplateView
+from .forms import CustomUserForm
+from django.urls import reverse_lazy
+from django.shortcuts import render
 
 user = openapi.Parameter('user', in_=openapi.IN_QUERY, description='로그인시 전달받은 사용자 id 값',
                                 type=openapi.TYPE_INTEGER)
+
+
+#class CustomUserFormView(FormView):
+#    form_class = CustomUserForm
+#    template_name = 'users/customuser_form.html'
+#    success_url = reverse_lazy('success')
+
+class SuccessView(TemplateView):
+    """
+        회원가입 성공 시 이동화는 화면
+    """
+
+    template_name = 'users/success.html'
+
+def create_user(request):
+    """
+        회원가입 폼
+    """
+    if request.method == 'POST':
+        form = CustomUserForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            user.set_password(user.password)
+            user.save()
+            return redirect('success')
+    else:
+        form = CustomUserForm()
+
+    return render(request, 'users/customuser_form.html', {'form': form})
+
 
 class RegistrationAPI(generics.GenericAPIView):
     """

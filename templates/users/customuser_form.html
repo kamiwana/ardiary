@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+
+{% load crispy_forms_tags %}
+
+{% block content %}
+<h1 class="mt-2">회원가입</h1>
+<hr class="mt-0 mb-4">
+  {% crispy form %}
+{% endblock %}

@@ -10,6 +10,7 @@ class CustomUserAdmin(UserAdmin):
     model = CustomUser
     list_display = ['pk', 'email', 'username', 'login_type', 'is_active', 'date_joined']
     list_display_links = ['email']
+    ordering = ['-pk']
     list_filter = ('login_type', 'is_staff')
 
     fieldsets = (
