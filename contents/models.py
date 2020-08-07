@@ -33,7 +33,7 @@ def qr_image_path(instance, filename):
 class QRDatas(models.Model):
     qr_data = models.CharField(max_length=255, unique=True)
     is_active = models.SmallIntegerField(choices=IS_ACTIVE, default=0, verbose_name='사용 여부')
-    activation_code = models.IntegerField(blank=True, default=0)
+    activation_code = models.CharField(blank=True, max_length=10)
     contents_type = models.CharField(choices=CONTENTS_TYPE, default='0', verbose_name='컨텐츠타입', blank=True,
                                              null=True, max_length=2)
     images = models.FileField(verbose_name='QR코드 이미지', upload_to=qr_image_path, blank=True, null=True)
@@ -49,6 +49,7 @@ class QRDatas(models.Model):
     
     def contents_title(self):
         return self.qrdatascontents.title
+
 
     class Meta:
         verbose_name = '1. QR코드'
@@ -112,6 +113,9 @@ class Contents(models.Model):
 
     def contents_type(self):
         return self.qr_data.contents_type
+
+    def images(self):
+        return self.qr_data.images.url
 
     def password(self):
         try:

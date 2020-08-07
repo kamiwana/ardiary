@@ -842,8 +842,8 @@ class CommentListAPI(APIView):
         }
     )
     def get(self, *args, **kwargs):
-        user_pk = self.request.GET.get('user', None)
-        get_user(user_pk)
+   #     user_pk = self.request.GET.get('user', None)
+   #     get_user(user_pk)
 
         contents_pk = self.request.GET.get("contents")
         get_contents(contents_pk)

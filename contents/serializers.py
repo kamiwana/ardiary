@@ -122,10 +122,10 @@ class ContentsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Contents
-        fields = ('pk',  'qr_data', 'contents_type', 'user', 'username', 'title', 'password', 'audio_url', 'recog_type',
+        fields = ('pk',  'qr_data', 'contents_type', 'images',  'user', 'username', 'title', 'password', 'audio_url', 'recog_type',
                   'video_url', 'label_text', 'neon_text', 'neon_style', 'neon_effect', 'neon_material',
                   'link_01_type', 'link_01_url', 'link_02_type', 'link_02_url', 'effect_type', 'char_type','on_air',
-                  'view_count', 'like_count','unlike_count', 'comment_count', 'update_dt',
+                  'view_count', 'like_count', 'unlike_count', 'comment_count', 'update_dt',
                   'contents_comment', 'contents_files')
         read_only_fields = ('pk', 'update_dt', 'like_count', 'unlike_count', 'comment_count', 'username', 'qr_code',
                             'view_count')
@@ -219,7 +219,8 @@ class QRDatasSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QRDatas
-        fields = ('id', 'qr_data', 'is_active', 'activation_code', 'contents_type', 'create_dt', 'update_dt', 'qrdatascontents',)
+        fields = ('id', 'qr_data', 'is_active', 'activation_code', 'contents_type', 'images',
+                  'create_dt', 'update_dt', 'qrdatascontents',)
 
 def create_comment_serializer(parent_id=None, user=None):
     class CommentCreateSerializer(serializers.ModelSerializer):
