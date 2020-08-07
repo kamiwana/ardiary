@@ -45,9 +45,8 @@ class ChangeQRDatasForm(forms.ModelForm):
 
     class Meta:
         model = QRDatas
-        exclude = ['images']
+        fields = '__all__'
 
-from django.http import HttpResponseNotFound
 @admin.register(QRDatas)
 class QRDatasAdmin(admin.ModelAdmin):
 
@@ -64,7 +63,7 @@ class QRDatasAdmin(admin.ModelAdmin):
 
     list_display = ('qr_data', 'is_active', 'contents_type', 'activation_code', 'contents_title', 'username', 'create_dt')
     list_display_links = ['qr_data']
-    list_editable = ['is_active',]
+    list_editable = ['is_active', 'contents_type',]
     ordering = ('-qr_data',)
     # 필터링 항목 설정
     list_filter = ('is_active', 'contents_type',)
@@ -88,22 +87,24 @@ class QRDatasAdmin(admin.ModelAdmin):
             self.form = AddQRDatasForm
         else:
             self.form = self.change_form
-            self.readonly_fields = ('qr_data', 'contents_type', 'activation_code', 'login_admin', 'create_dt', 'qrcode_image', )
+            self.readonly_fields = ('qr_data', 'login_admin', 'create_dt', 'qrcode_image',  )
 
         return super(QRDatasAdmin, self).get_form(request, obj, **kwargs)
 
     def save_model(self, request, obj, form, change):
-
-        files = request.FILES.getlist('images')
-        for f in files:
-            name_slice = f.name.split('_')
-            qr_data = name_slice[0] + '_' + name_slice[1]
-            contents_type = name_slice[1][3:4]
-            activation_code = name_slice[2].split('.')
-            try:
-                QRDatas.objects.get(qr_data=qr_data)
-            except:
-               QRDatas.objects.create(images=f, qr_data=qr_data, contents_type=contents_type, activation_code=activation_code[0], login_admin=request.user)
+        if change:
+            return super(QRDatasAdmin, self).save_model(request, obj, form, change)
+        else:
+            files = request.FILES.getlist('images')
+            for f in files:
+                name_slice = f.name.split('_')
+                qr_data = name_slice[0] + '_' + name_slice[1]
+                contents_type = name_slice[1][3:4]
+                activation_code = name_slice[2].split('.')
+                try:
+                    QRDatas.objects.get(qr_data=qr_data)
+                except:
+                   QRDatas.objects.create(images=f, qr_data=qr_data, contents_type=contents_type, activation_code=activation_code[0], login_admin=request.user)
 
 @admin.register(Contents)
 class ContentsAdmin(admin.ModelAdmin):
