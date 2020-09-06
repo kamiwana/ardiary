@@ -941,3 +941,139 @@ class CommentDeleteAPI(APIView):
 
         #return Response(data, status=status.HTTP_200_OK)
 
+class LikeSetAPI(APIView):
+    """
+    로그인 유저의  "좋아요", 싫어요" 클릭
+    ---
+    # /contents/like/set
+    """
+
+    @swagger_auto_schema(request_body=openapi.Schema(
+
+        type=openapi.TYPE_OBJECT,
+        required=['user', 'contents', 'like_type'],
+        properties={
+            'user': openapi.Schema(type=openapi.TYPE_INTEGER, description='로그인시 전달받은 사용자 id 값'),
+            'contents': openapi.Schema(type=openapi.TYPE_INTEGER, description='contents id'),
+            'like_type': openapi.Schema(type=openapi.TYPE_INTEGER,
+                                        description='like_type : 0-아무것도 안누름, 1-like 누름, 2-unlike 누름')
+        },
+    ),
+        responses={
+            200: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+               'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0,1'),
+               'error': openapi.Schema(type=openapi.TYPE_STRING, description='null'),
+               'data': openapi.Schema(type=openapi.TYPE_STRING,
+                                      description='0-아무것도 안누름, 1-like 누름, 2-unlike 누름'),
+                },
+            ),
+            400:
+                error_collection.USERNAME_NOT_FOUND.as_md() +
+                error_collection.CONTENTS_NOT_FOUNDS.as_md()
+        },
+    )
+    def post(self, request, *args, **kwargs):
+
+        like_type = self.request.data.get('like_type', None)
+        user_pk = self.request.data.get('user', None)
+        user = get_user(user_pk)
+
+        contents_pk = self.request.data.get('contents', None)
+        contents = get_contents(contents_pk)
+
+        if like_type is None:
+            data = {'result': 0, 'error': 'like_type을 입력하세요.', 'data': ''}
+            return Response(data, status=status.HTTP_200_OK)
+
+        if like_type == '0':
+            try:
+                contents_like = contents.like_set.get(user=user)
+                contents_like.delete()
+            except:
+                pass
+            try:
+                contents_unlike = contents.unlike_set.get(user=user)
+                contents_unlike.delete()
+            except:
+                pass
+            data = {'result': 1, 'error': 'null', 'data': '0'}
+            return Response(data, status=status.HTTP_200_OK)
+
+        elif like_type == '1':
+            try:
+                contents_unlike = contents.unlike_set.get(user=user)
+                contents_unlike.delete()
+            except:
+                pass
+
+            contents.like_set.get_or_create(user=user)
+            data = {'result': 1, 'error': 'null', 'data': '1'}
+            return Response(data, status=status.HTTP_200_OK)
+
+        elif like_type == '2':
+            try:
+                contents_like = contents.like_set.get(user=user)
+                contents_like.delete()
+            except:
+                pass
+
+            contents.unlike_set.get_or_create(user=user)
+            data = {'result': 1, 'error': 'null', 'data': '2'}
+            return Response(data, status=status.HTTP_200_OK)
+
+        else:
+            data = {'result': 0, 'error': 'like_type이 바르지않습니다.', 'data': ''}
+            return Response(data, status=status.HTTP_200_OK)
+
+
+class LikeGetAPI(APIView):
+    """
+    로그인 유저의  "좋아요", 싫어요" 클릭 여부
+
+    ---
+    # /contents/like/get?user={user}&contents={contents}
+    """
+
+    @swagger_auto_schema(
+        manual_parameters=[user, contents],
+        responses={
+            200: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+               'result': openapi.Schema(type=openapi.TYPE_INTEGER, description='0, 1'),
+               'error': openapi.Schema(type=openapi.TYPE_STRING, description='null'),
+               'data': openapi.Schema(type=openapi.TYPE_STRING,
+                                      description='0-아무것도 안누름, 1-like 누름, 2-unlike 누름'),
+                },
+            ),
+            400:
+                error_collection.USERNAME_NOT_FOUND.as_md() +
+                error_collection.CONTENTS_NOT_FOUNDS.as_md()
+        },
+    )
+
+    def get(self, request, *args, **kwargs):
+
+        user_pk = self.request.GET.get('user', None)
+        user = get_user(user_pk)
+
+        contents_pk = self.request.GET.get('contents', None)
+        contents = get_contents(contents_pk)
+        like_type = 0
+
+        try:
+            contents.like_set.get(user=user)
+            like_type = 1
+        except:
+            pass
+
+        try:
+            contents.unlike_set.get(user=user)
+            like_type = 2
+        except:
+            pass
+
+        data = {'result': 1, 'error': 'null', 'data': like_type}
+        return Response(data, status=status.HTTP_200_OK)
